@@ -21,23 +21,25 @@ class RNN:
 		self.W_cl = theano.shared(value = W_cl, name = 'W_cl')
 
 		# activation function
-		self.activation = params['activation']
+		self.activation = params['activation'] or T.nnet.sigmoid
 		self.input = params['input']
-		self.h0 = params['h0']
+
+		h0 = np.zeros((n_hidden, ))
+		self.h0 = theano.shared(value = h0, name = 'h0')
 
 		self.params = [self.W, self.W_in, self.W_out, self.W_cl, self.h0]
 
 		# step function for scan
 		def step(self, x_t, h_tm1):
-			h_t self.activation(theano.dot(self.W_in, x_t) + theano.dot(self.W, h_tm1))
+			h_t = self.activation(theano.dot(self.W_in, x_t) + theano.dot(self.W, h_tm1))
 			y_t = T.softmax(theano.dot(self.W_out, h_t))
 			cl_t = T.softmax(theano.dot(self.W_cl, h_t))
 
 		return [h_t, y_t, cl_t]
 
 		[self.h, self.y_pred, self.cl_pred], _ = theano.scan(step, \
-						sequences = dict(input = self.input, taps = [-1, 0]) \
-						outputs_info = [dict(self.h0, taps = [-1, 0]), None] \
+						sequences = dict(input = self.input, taps = [-1, 0]), \
+						outputs_info = [dict(self.h0, taps = [-1, 0]), None], \
 						non_sequences = [self.W, self.W_in, self.W_out, self_cl])
 
 		self.y_out = T.argmax(self.y_pred, self.cl_pred)

@@ -3,7 +3,16 @@ import theano.tensor as T
 
 import rnn
 
-class RNN_Controller:
+class model:
+	def __init__(self, params):
+		self.n_input = params['n_input']
+		self.n_hidden = params['n_hidden']
+		self.n_output = params['n_output']
+		self.n_class = params['n_class']
+		self.learning_rate = params['learning_rate'] or 0.01
+		self.n_epochs = params['n_epochs'] or 100
+		self.activation = params['activation'] or 'sigmoid'
+
 	def ready(self):
 		self.x = T.matrix()
 		self.y = T.vector(name = 'y')
@@ -15,14 +24,12 @@ class RNN_Controller:
 		else:
 			raise NotImplementedError
 
-		params = {'input' = self.x,
-			'n_input' = self.n_input,
-			'n_hidden' = self.n_hidden,
-			'n_output' = self.n_output,
-			'n_class' = self.n_class,
-			'activation' = activation}
-
-		self.rnn = RNN(params)
+		self.rnn = RNN({'input' = self.x,
+				'n_input' = self.n_input,
+				'n_hidden' = self.n_hidden,
+				'n_output' = self.n_output,
+				'n_class' = self.n_class,
+				'activation' = activation})
 
 	def fit(self, x_train, y_train, x_test = None, y_test = None, validation_freq = 100):
 		train_set_x = theano.shared(np.asarray(x_train))
