@@ -6,7 +6,7 @@ import model
 
 c = corpus.Corpus('training_corpus', 'test_encoded')
 
-print(c.input_size)
+print(c.max_class_size)
 #for lst in c.classes:
 #	if not lst:
 #		print("empty at index: ", i)

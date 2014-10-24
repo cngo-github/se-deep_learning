@@ -96,7 +96,7 @@ class Corpus:
 			self.classes[prob].append(k)
 
 #		print('max: ', self.max_probability, ' min: ', self.min_probability, ' class: ', class_size)
-		print('classes: ', self.classes[3])
+#		print('classes: ', self.classes[3])
 
 		unfilled = True;
 		while unfilled:
@@ -105,7 +105,7 @@ class Corpus:
 
 			for i in range(class_cnt):
 				if not self.classes[i]:
-					print('Empty at: ', i)
+#					print('Empty at: ', i)
 					empty.append(i)
 					j += 1
 				elif empty:
@@ -117,11 +117,15 @@ class Corpus:
 			else:
 				unfilled = False
 
-		for i in range(class_cnt):
-			if not self.classes[i]:
-				print('Empty at: ', i)
-			else:
-				print('Filled at: ', i)
+#		for i in range(class_cnt):
+#			if not self.classes[i]:
+#				print('Empty at: ', i)
+#			else:
+#				print('Filled at: ', i)
+		self.max_class_size = 0
+		for i in self.classes:
+			if self.max_class_size < len(i):
+				self.max_class_size = len(i)
 
 	def smoothClasses(self, empty_list, populated_index):
 		source = self.classes[populated_index]
