@@ -89,6 +89,6 @@ class Model:
 				train_loss_mean = np.mean(test_losses)
 
 				if self.test:
-					test_losses = [compute_train_error(k)
+					test_losses = [compute_test_error(k)
 							for k in xrange(n_test)]
 					test_loss_mean = np.mean(test_losses)
