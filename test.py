@@ -64,6 +64,8 @@ def test_softmax(n_epochs=250):
 
 if __name__ == "__main__":
 	logging.basicConfig(filename = 'log', level=logging.INFO)
+	print "Starting run"
 	t0 = time.time()
 	test_softmax(n_epochs=250)
+	logger.info( "Elapsed time: %f" % (time.time() - t0))
 	print "Elapsed time: %f" % (time.time() - t0)
