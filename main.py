@@ -21,7 +21,7 @@ def run_softmax(seq, targets, n_hidden, n_in, n_steps, n_seq, n_classes, n_out):
 	seq = np.asarray(seq)
 	targets = np.asarray(targets)
 
-	model = Model(logger, mode, n_in=n_in, n_hidden=n_hidden, n_out=n_out,
+	model = Model(logger = logger, n_in=n_in, n_hidden=n_hidden, n_out=n_out,
 			learning_rate=0.001, learning_rate_decay=0.999,
 			n_epochs=n_epochs, activation='sigmoid')
 
