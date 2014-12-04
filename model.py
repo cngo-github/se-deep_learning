@@ -7,11 +7,12 @@ import theano
 #import logging
 
 class Model(object):
-	def __init__(self, logger, mode, n_in = 5, n_hidden = 50, n_out = 5,
+	def __init__(self, n_in = 5, n_hidden = 50, n_out = 5,
 			n_cl = 5, learning_rate=0.01, n_epochs=100,
 			learning_rate_decay=1, activation='sigmoid',
 			final_momentum=0.9, initial_momentum=0.5,
-			momentum_switchover=5):
+			momentum_switchover=5, logger = None,
+			mode = theano.Mode(linker='cvm')):
         	self.n_in = int(n_in)
 		self.n_hidden = int(n_hidden)
 		self.n_out = int(n_out)
@@ -102,7 +103,8 @@ class Model(object):
 		######################
 		# BUILD ACTUAL MODEL #
 		######################
-		self.logger.info('... building the model')
+		if self.logger is not None:
+			self.logger.info('... building the model')
 
 		index = T.lscalar('index')    # index to a case
 		# learning rate (may change)
@@ -154,7 +156,8 @@ class Model(object):
 		###############
 		# TRAIN MODEL #
 		###############
-		self.logger.info('... training')
+		if self.logger is not None:
+			self.logger.info('... training')
 		epoch = 0
 
 		while (epoch < self.n_epochs):
@@ -181,13 +184,15 @@ class Model(object):
 							for i in xrange(n_test)]
 					this_test_loss = np.mean(test_losses)
 
-					self.logger.info('epoch %i, seq %i/%i, tr loss %f '
-						'te loss %f lr: %f' % (epoch, idx + 1, n_train,
-						this_train_loss, this_test_loss,
-						self.learning_rate))
+					if self.logger is not None:
+						self.logger.info('epoch %i, seq %i/%i, tr loss %f '
+							'te loss %f lr: %f' % (epoch, idx + 1, n_train,
+							this_train_loss, this_test_loss,
+							self.learning_rate))
 				else:
-					self.logger.info('epoch %i, seq %i/%i, train loss %f '
-						'lr: %f' % (epoch, idx + 1, n_train,
-						this_train_loss, self.learning_rate))
+					if self.logger is not None:
+						self.logger.info('epoch %i, seq %i/%i, train loss %f '
+							'lr: %f' % (epoch, idx + 1, n_train,
+							this_train_loss, self.learning_rate))
 
 			self.learning_rate *= self.learning_rate_decay

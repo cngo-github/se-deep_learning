@@ -3,57 +3,39 @@
 	encoding for the specified token.
 '''
 
-import queue
 import math
 
 class Corpus:
-	def __init__(self, in_file, out_file, total_classes = None, notify_interval = 100, debug_mode = None):
-		self.vocab = None
-		self.encodedTokens = []
+	def __init__(self, in_file, total_classes = None):
 		self.in_file = in_file
-		self.out_file = out_file
-		self.notify_interval = notify_interval
 		self.total_classes = total_classes
-		self.debug_mode = debug_mode
 
 		self.buildVocabulary()
-		self.calcTokenProbability()
-		self.buildClasses()
+#		self.calcTokenProbability()
+#		self.buildClasses()
 
 	'''
 		Reads the file passed in and generates the vocabulary and list of tokens from it.
 	'''
 	def buildVocabulary(self):
-		print("Reading file: ", self.in_file, end = '')
+		print("Reading file: ", self.in_file)
 		inFile = open(self.in_file, 'r')
 
 		self.vocabulary = {}
-		i = 0
 
 		for line in inFile:
 			line = line.strip()
+			lineSplit = line.split()
 
-			while line:
-				pos = line.find(' ')
-
-				if pos < 1:
-					pos = len(line)
-
-				token = line[:pos].strip()
-
+			for token in lineSplit:
 				if token in self.vocabulary:
 					self.vocabulary[token]['count'] += 1
 				else:
 					self.vocabulary[token] = {'count': 1}
 
-				line = line[pos + 1:].strip()
-				i += 1
-
 		inFile.close()
-		self.vocab_token_count = i
-		self.input_size = len(self.vocabulary)
-
-		print('\nVocabulary created.  Calculating classes.')
+		self.vocabList = list(self.vocabulary)
+		print('\nVocabulary created.')
 
 	def calcTokenProbability(self):
 		max_probability = 0
@@ -61,7 +43,6 @@ class Corpus:
 
 		for k, v in self.vocabulary.items():
 			prob = (v['count'] / self.vocab_token_count) * 100
-#			print('token: ', k, ' count: ', v['count'], ' prob: ', prob)
 			self.vocabulary[k]['probability'] = prob
 
 			if max_probability < prob:
@@ -92,11 +73,7 @@ class Corpus:
 			if prob >= class_cnt:
 				prob = class_cnt - 1
 
-#			print('token: ', k, ' prob: ', v['probability'], ' i: ', i, ' j: ', j, ' l: ', l, ' m: ', m)
 			self.classes[prob].append(k)
-
-#		print('max: ', self.max_probability, ' min: ', self.min_probability, ' class: ', class_size)
-#		print('classes: ', self.classes[3])
 
 		unfilled = True;
 		while unfilled:
@@ -105,7 +82,6 @@ class Corpus:
 
 			for i in range(class_cnt):
 				if not self.classes[i]:
-#					print('Empty at: ', i)
 					empty.append(i)
 					j += 1
 				elif empty:
@@ -117,11 +93,6 @@ class Corpus:
 			else:
 				unfilled = False
 
-#		for i in range(class_cnt):
-#			if not self.classes[i]:
-#				print('Empty at: ', i)
-#			else:
-#				print('Filled at: ', i)
 		self.max_class_size = 0
 		for i in self.classes:
 			if self.max_class_size < len(i):
@@ -154,38 +125,47 @@ class Corpus:
 	'''
 		Returns the tokens as a series of one-hot encoded vectors.
 	'''
-	def encodedAllTokens(self):
-		inFile = open(self.in_file, 'r')
-		outFile = open(self.out_file, 'w')
+	def encodeAllTokens(self, inFile):
+		inFile = open(inFile, 'r')
+		retList = []
 
-		print('Encoding all the tokens in ', self.in_file, ' and writing them to ', \
-			self.out_file, end = '')
-		i = 0
+		print('Encoding all the tokens in %s.' % inFile)
+#		i = 0
 		for line in inFile:
-			while line:
-				pos = line.find(' ')
+			lineSplit = line.split()
 
-				if pos < 1:
-					pos = len(line)
+			for token in lineSplit:
+#				pos = line.find(' ')
 
-				token = line[:pos].strip()
-				line = line[pos + 1:]
-				print(self.encodeToken(token), file = outFile)
+#				if pos < 1:
+#					pos = len(line)
+#
+#				token = line[:pos].strip()
+#				line = line[pos + 1:]
+				print(token)
+				retList.append(self.encodeToken(token))
 
-				i += 1
+#				i += 1
 			
-			if not i % self.notify_interval:
-				i = 0
-				print('.', end = '')
+#			if not i % self.notify_interval:
+#				i = 0
+#				print('.', end = '')
 
-		outFile.close()
 		inFile.close()
 		print("All the tokens have been encoded.")
 
-	def encodeToken(self, token):
-		i = self.vocab.index(token)
+		return retList
 
-		m = [0] * self.input_size
-		m[i] = 1
+	def encodeToken(self, token):
+		m = [0] * self.getVocabSize()
+
+		try:
+			i = self.vocabList.index(token)
+			m[i] = 1
+		except ValueError:
+			print('Token ' + token + ' not in vocabulary list.')
 
 		return m
+
+	def getVocabSize(self):
+		return len(self.vocabList)
