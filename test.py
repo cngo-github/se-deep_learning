@@ -63,7 +63,7 @@ def test_softmax(n_epochs=250):
         ax2.set_title('blue: true class, grayscale: probs assigned by model')
 
 if __name__ == "__main__":
-	logging.basicConfig(level=logging.INFO)
+	logging.basicConfig(filename = 'log', level=logging.INFO)
 	t0 = time.time()
 	test_softmax(n_epochs=250)
 	print "Elapsed time: %f" % (time.time() - t0)
