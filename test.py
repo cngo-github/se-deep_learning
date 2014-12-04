@@ -36,7 +36,7 @@ def test_softmax(n_epochs=250):
     targets[:, 2:][seq[:, 1:-1, 3] < seq[:, :-2, 0] - thresh] = 2
     #targets[:, 2:, 0] = np.cast[np.int](seq[:, 1:-1, 3] > seq[:, :-2, 0])
 
-    model = Model(logger, mode, n_in=n_in, n_hidden=n_hidden, n_out=n_out,
+    model = Model(logger = logger, mode = mode, n_in=n_in, n_hidden=n_hidden, n_out=n_out,
                     learning_rate=0.001, learning_rate_decay=0.999,
                     n_epochs=n_epochs, activation='sigmoid')
 
