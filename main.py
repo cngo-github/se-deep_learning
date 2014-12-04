@@ -18,7 +18,7 @@ import time
 
 def main(vocabFile, testFile):
 	c = Corpus(vocabFile)
-	seq = c.encodeAllTokens(testFile))
+	seq = c.encodeAllTokens(testFile)
 	inSize = c.getVocabSize()
 
 	run_softmax(seq, seq, n_hidden = 10, n_in = inSize, n_steps = 10,
