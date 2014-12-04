@@ -19,8 +19,8 @@ def main(vocabFile, testFile):
 
 def run_softmax(seq, targets, n_hidden, n_in, n_steps, n_seq, n_classes, n_out,
 		n_epochs = 250):
-	seq = np.asarray(seq)
-	targets = np.asarray(targets)
+	seq = np.matrix(seq)
+	targets = np.matrix(targets)
 
 	model = Model(logger = logger, n_in=n_in, n_hidden=n_hidden, n_out=n_out,
 			learning_rate=0.001, learning_rate_decay=0.999,
