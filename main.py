@@ -1,4 +1,5 @@
 from corpus import Corpus
+from model import Model
 
 import numpy as np
 
@@ -6,15 +7,6 @@ import logging
 import time
 #import theano
 #import rnn
-
-#import model
-
-#n_hidden = 10
-#n_in = 5
-#n_steps = 10
-#n_seq = 100
-#n_classes = 3
-#n_out = n_classes
 
 def main(vocabFile, testFile):
 	c = Corpus(vocabFile)
@@ -25,7 +17,10 @@ def main(vocabFile, testFile):
 			n_seq = 100, n_classes = 1, n_out = inSize)
 
 
-def run_softmax(seq, target, n_hidden, n_in, n_steps, n_seq, n_classes, n_out):
+def run_softmax(seq, targets, n_hidden, n_in, n_steps, n_seq, n_classes, n_out):
+	seq = np.asarray(seq)
+	targets = np.asarray(targets)
+
 	model = Model(logger, mode, n_in=n_in, n_hidden=n_hidden, n_out=n_out,
 			learning_rate=0.001, learning_rate_decay=0.999,
 			n_epochs=n_epochs, activation='sigmoid')
