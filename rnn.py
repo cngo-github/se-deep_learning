@@ -1,90 +1,94 @@
-import numpy as np
 import theano
-import theano.tensor as T
+import theano.tensor as t
+import numpy as np
 
 class RNN(object):
-	"""    Recurrent neural network class
-	Supported output types:
-	real : linear output units, use mean-squared error
-	binary : binary output units, use cross-entropy error
-	softmax : single softmax out, use cross-entropy error
-	"""
-	def __init__(self, input, n_in, n_hidden, n_out, n_cl,
-			activation=T.nnet.sigmoid):	
-		self.input = input
+	def __init__(self, n_in, n_out, n_hid, inputs, learning_rate = 1.,
+			dtype = theano.config.floatX, activation = t.nnet.sigmoid,
+			output_type = t.nnet.softmax):
+		W_ih, W_hh, W_ho, h0 = self.get_parameter(n_in, n_out, n_hid, dtype)
+		self.h0 = theano.shared(value = h0, name = 'h0')
+		self.W_ih = theano.shared(value = W_ih, name = 'W_ih')
+		self.W_hh = theano.shared(value = W_hh, name = 'W_hh')
+		self.W_ho = theano.shared(value = W_ho, name = 'W_ho')
+		self.params = [W_ih, W_hh, W_ho, h0]
+
+		self.inputs = inputs
 		self.activation = activation
+		self.output_type = output_type
 
-		# recurrent weights as a shared variable
-		W_init = np.asarray(np.random.uniform(size=(n_hidden, n_hidden),
-						low=-.01, high=.01),
-						dtype=theano.config.floatX)
-		self.W = theano.shared(value=W_init, name='W')
+		[h_vals, o_vals], _ = theano.scan(fn = self.step,
+									sequences = dict(input=self.inputs, taps=[0]),
+									outputs_info = [self.h0, None],
+									non_sequences = [self.W_ih, self.W_hh, self.W_ho])
 
-		# input to hidden layer weights
-		W_in_init = np.asarray(np.random.uniform(size=(n_in, n_hidden),
-						low=-.01, high=.01),
-						dtype=theano.config.floatX)
-		self.W_in = theano.shared(value=W_in_init, name='W_in')
+		self.o_vals = o_vals
+		self.h_vals = h_vals
 
-		# hidden to output layer weights (y)
-		W_out_init = np.asarray(np.random.uniform(size=(n_hidden, n_out),
-						low=-.01, high=.01),
-						dtype=theano.config.floatX)
-		self.W_out = theano.shared(value=W_out_init, name='W_out')
+		self.learning_rate = theano.shared(np.cast[dtype](learning_rate))
 
-		# hidden to output layer weights (class)
-		W_cl = np.asarray(np.random.uniform(size=(n_hidden, n_cl),
-						low=-.01, high=.01),
-						dtype=theano.config.floatX)
-		self.W_cl = theano.shared(value = W_cl, name = 'W_cl')
+	def get_parameter(self, n_in, n_out, n_hid, dtype = theano.config.floatX):
+		h0 = np.zeros((n_hid,), dtype=dtype)
+		W_ih = np.asarray(np.random.uniform(size=(n_in, n_hid),
+						low= -.01, high= .01),
+						dtype = dtype)
+		W_hh = np.asarray(np.random.uniform(size = (n_hid, n_hid),
+						low = -.01, high = .01),
+						dtype = dtype)
+		W_ho = np.asarray(np.random.uniform(size = (n_hid, n_out),
+						low = -.01, high = .01),
+						dtype = dtype)
 
-		h0_init = np.zeros((n_hidden,), dtype=theano.config.floatX)
-		self.h0 = theano.shared(value=h0_init, name='h0')
+		return W_ih, W_hh, W_ho, h0
 
-		self.params = [self.W, self.W_in, self.W_out, self.h0]
+	def step(self, x_t, h_tm1, W_ih, W_hh, W_ho):
+		h_t = self.activation(theano.dot(x_t, W_ih) + theano.dot(h_tm1, W_hh))
+		y_t = theano.dot(h_t, W_ho)
+		y_t = self.output_type(y_t)
 
-	        # for every parameter, we maintain it's last update
-        	# the idea here is to use "momentum"
-        	# keep moving mostly in the same direction
-		self.updates = {}
-		for param in self.params:
-			init = np.zeros(param.get_value(borrow=True).shape,
-					dtype=theano.config.floatX)
-			self.updates[param] = theano.shared(init)
+		return [h_t, y_t]
 
-		# the hidden state `h` for the entire sequence, and the output for the
-		# entire sequence `y` (first dimension is always time)
-		[self.h, self.y_pred, self.cl_pred], _ = theano.scan(self.step,
-							sequences=self.input,
-							outputs_info=[self.h0, None, None])
+	def loss(self, target):
+		return -t.mean(t.log(self.o_vals)[t.arange(target.shape[0]), target])
 
-		# push through softmax, computing vector of class-membership
-		# probabilities in symbolic form
-		self.y_prob = T.nnet.softmax(self.y_pred)
-		self.cl_prob = T.nnet.softmax(self.cl_pred)
+	def get_train_functions(self, target):
+		cost = self.loss(target)
+		gparams = []
+		params = self.params
+		cnt = 0
 
-		# compute prediction as class whose probability is maximal
-		self.y_out = T.argmax(self.y_prob, axis=-1)
-		self.cl_prob = T.argmax(self.cl_prob, axis = -1)
-		self.loss = lambda y: self.nll_multiclass(y)
+		index = t.lscalar('index')
+#		compute_train_error = theano.function(inputs=[index,],
+#											outputs = cost,
+#											on_unused_input = 'warn')
 
-	def step(self, x_t, h_tm1):
-		h_t = self.activation(T.dot(x_t, self.W_in) + T.dot(h_tm1, self.W))
-		y_t = T.dot(h_t, self.W_out)
-		cl_t = theano.dot(h_t, self.W_cl)
+		for param in params:
+			cnt += 1
+			print(cnt)
+			gparam = t.grad(cost, param)
+			gparams.append(gparam)
 
-		return h_t, y_t, cl_t
+		updates=[]
+		for param, gparam in zip(params, gparams):
+			updates.append((param, param - gparam * self.learning_rate))
 
-	def nll_multiclass(self, y):
-        	# negative log likelihood based on multiclass cross entropy error
-        	# y.shape[0] is (symbolically) the number of rows in y, i.e.,
-        	# number of time steps (call it T) in the sequence
-        	# T.arange(y.shape[0]) is a symbolic vector which will contain
-        	# [0,1,2,... n-1] T.log(self.p_y_given_x) is a matrix of
-        	# Log-Probabilities (call it LP) with one row per example and
-        	# one column per class LP[T.arange(y.shape[0]),y] is a vector
-        	# v containing [LP[0,y[0]], LP[1,y[1]], LP[2,y[2]], ...,
-        	# LP[n-1,y[n-1]]] and T.mean(LP[T.arange(y.shape[0]),y]) is
-        	# the mean (across minibatch examples) of the elements in v,
-        	# i.e., the mean log-likelihood across the minibatch.
-		return -T.mean(T.log(self.y_prob)[T.arange(y.shape[0]), y])
+		learn_rnn_fn = theano.function(inputs = [index,],
+										outputs = cost,
+										updates = updates)
+
+		return learn_rnn_fn
+
+	def train_rnn(self, train_data, learn_rnn_fn, nb_epochs = 150):
+		train_errors = np.ndarray(nb_epochs)
+
+		for x in range(nb_epochs):
+			error = 0.
+
+			for j in range(len(train_data)):
+				index = np.random.randint(0, len(train_data))
+				i, o = train_data[index]
+				train_cost = self.learn_rnn_fn(i, o)
+				error += train_cost
+			train_errors[x] = error
+
+		return train_errors

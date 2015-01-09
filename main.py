@@ -1,51 +1,22 @@
-from corpus import Corpus
-from model import Model
+import theano
+import theano.tensor as t
+import reberGrammar
+from rnn import RNN
 
-import numpy as np
+dtype = theano.config.floatX
 
-import logging
-import time
-#import theano
-#import rnn
+n_in = 7
+n_hid = 10
+n_out = 7
 
-def main(vocabFile, testFile):
-	c = Corpus(vocabFile)
-	seq = c.encodeAllTokens(testFile)
-	inSize = c.getVocabSize()
+v = t.matrix(dtype = dtype)
+target = t.matrix(dtype = dtype)
+target = t.cast(target, 'int32')
 
-	run_softmax(seq, seq, n_hidden = 10, n_in = inSize, n_steps = 10,
-			n_seq = 100, n_classes = 1, n_out = inSize)
+rnn = RNN(n_in, n_out, n_hid, v)
 
+learn_rnn_fn = rnn.get_train_functions(target)
+train_data = reberGrammar.get_n_examples(500)
 
-def run_softmax(seq, targets, n_hidden, n_in, n_steps, n_seq, n_classes, n_out,
-		n_epochs = 250):
-	seq = np.matrix(seq)
-	targets = np.asarray(targets)
-
-	model = Model(logger = logger, n_in=n_in, n_hidden=n_hidden, n_out=n_out,
-			learning_rate=0.001, learning_rate_decay=0.999,
-			n_epochs=n_epochs, activation='sigmoid')
-
-	model.fit(seq, targets, validation_frequency=1000)
-#c = corpus.Corpus('test')
-#print(c.encodeAllTokens('test'))
-
-#print(c.getVocabSize())
-#for lst in c.classes:
-#	if not lst:
-#		print("empty at index: ", i)
-#print(c.encodedTokens)
-'''
-n_input, n_hidden, n_output, n_class, learning_rate = 0.01, n_epochs = 100, activation = 'sigmoid'
-
-aModel = Model({n_input: 5,
-		n_hidden: 10,
-		n_output: 10,
-		n_class: 10})
-
-aModel.fit(seq, targets)
-'''
-
-logger = logging.getLogger(__name__)
-
-main('test', 'test2')
+nb_epochs=10
+train_errors = train_rnn(train_data, learn_rnn_fn, nb_epochs)

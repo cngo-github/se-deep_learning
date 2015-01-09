@@ -23,6 +23,7 @@ def test_softmax(n_epochs=250):
     np.random.seed(0)
     # simple lag test
     seq = np.random.randn(n_seq, n_steps, n_in)
+    print(seq)
     targets = np.zeros((n_seq, n_steps), dtype=np.int)
 
     thresh = 0.5

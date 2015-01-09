@@ -130,26 +130,13 @@ class Corpus:
 		retList = []
 
 		print('Encoding all the tokens in %s.' % inFile)
-#		i = 0
+
 		for line in inFile:
 			lineSplit = line.split()
 
 			for token in lineSplit:
-#				pos = line.find(' ')
-
-#				if pos < 1:
-#					pos = len(line)
-#
-#				token = line[:pos].strip()
-#				line = line[pos + 1:]
 				print(token)
 				retList.append(self.encodeToken(token))
-
-#				i += 1
-			
-#			if not i % self.notify_interval:
-#				i = 0
-#				print('.', end = '')
 
 		inFile.close()
 		print("All the tokens have been encoded.")
@@ -166,6 +153,3 @@ class Corpus:
 			print('Token ' + token + ' not in vocabulary list.')
 
 		return m
-
-	def getVocabSize(self):
-		return len(self.vocabList)
