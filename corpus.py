@@ -4,6 +4,7 @@
 '''
 
 import math
+import numpy as np
 
 class Corpus:
 	def __init__(self, in_file, total_classes = None):
@@ -11,8 +12,6 @@ class Corpus:
 		self.total_classes = total_classes
 
 		self.buildVocabulary()
-#		self.calcTokenProbability()
-#		self.buildClasses()
 
 	'''
 		Reads the file passed in and generates the vocabulary and list of tokens from it.
@@ -35,6 +34,7 @@ class Corpus:
 
 		inFile.close()
 		self.vocabList = list(self.vocabulary)
+		self.vocabSize = len(self.vocabList)
 		print('\nVocabulary created.')
 
 	def calcTokenProbability(self):
@@ -135,7 +135,7 @@ class Corpus:
 			lineSplit = line.split()
 
 			for token in lineSplit:
-				print(token)
+#				print(token)
 				retList.append(self.encodeToken(token))
 
 		inFile.close()
@@ -144,7 +144,7 @@ class Corpus:
 		return retList
 
 	def encodeToken(self, token):
-		m = [0] * self.getVocabSize()
+		m = np.zeros(self.vocabSize)
 
 		try:
 			i = self.vocabList.index(token)

@@ -43,7 +43,7 @@ class Model(object):
 		""" Load the dataset into shared variables """
 
 		data_x, data_y = data_xy
-		print(data_x)
+		
 		shared_x = theano.shared(np.asarray(data_x,
 						dtype=theano.config.floatX))
 
