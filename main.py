@@ -1,22 +1,21 @@
 import theano
 import theano.tensor as t
-import reberGrammar
-from rnn import RNN
+#import reberGrammar
+import numpy as np
+from model import Model
 
 dtype = theano.config.floatX
 
-n_in = 7
+n_in = 5
 n_hid = 10
-n_out = 7
+n_classes = 3
+n_out = n_classes
 
-v = t.matrix(dtype = dtype)
-target = t.matrix(dtype = dtype)
-target = t.cast(target, 'int32')
+n_seq = 100
+n_steps = 10
 
-rnn = RNN(n_in, n_out, n_hid, v)
+x = np.random.randn(n_seq, n_steps, n_in)
+y = np.zeros((n_seq, n_steps), dtype = np.int)
 
-learn_rnn_fn = rnn.get_train_functions(target)
-train_data = reberGrammar.get_n_examples(500)
-
-nb_epochs=10
-train_errors = train_rnn(train_data, learn_rnn_fn, nb_epochs)
+model = Model(n_in, n_hid, n_out, n_classes)
+model.fit(x, y)
