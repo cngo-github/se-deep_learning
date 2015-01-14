@@ -7,7 +7,7 @@ import theano
 
 class Model(object):
 	def __init__(self, n_in = 5, n_hidden = 50, n_out = 5,
-			n_cl = 5, learning_rate=0.01, n_epochs=100,
+			n_cl = 5, learning_rate=0.01, n_epochs=1000,
 			learning_rate_decay=1):
         	self.n_in = int(n_in)
 		self.n_hidden = int(n_hidden)
@@ -159,6 +159,10 @@ class Model(object):
 					test_losses = [compute_test_error(i)
 							for i in xrange(n_test)]
 					this_test_loss = np.mean(test_losses)
+
+				print('epoch %i, seq %i/%i, train loss %f '
+					'lr: %f' % (epoch, idx + 1, n_train,
+						this_train_loss, self.learning_rate))
 
 #					if self.logger is not None:
 #						self.logger.info('epoch %i, seq %i/%i, tr loss %f '
