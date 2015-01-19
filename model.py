@@ -82,7 +82,10 @@ class Model(object):
 			'n_epochs': self.n_epochs,
 			'rnn_dtype': self.rnn_dtype,
 			'activation': self.activation,
-			'output_type': self.output_type
+			'output_type': self.output_type,
+			'samples': self.samples,
+			'batch': self.batch,
+			'seqlen': self.seqlen
 		}
 
 		return params

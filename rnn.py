@@ -1,4 +1,5 @@
 import theano
+
 import theano.tensor as t
 import numpy as np
 
@@ -10,12 +11,12 @@ class RNN(object):
 	def ready(self):
 		self.x = t.matrix(name = 'x')
 		self.y = t.ivector(name = 'y')
-		self.h0 = t.matrix()
+		self.H = t.matrix()
 		self.lr = t.fscalar()
 
 		h_t, updates = theano.scan(fn = self.step,
 									sequences = dict(input= self.x, taps = [0]),
-									outputs_info = dict(initial = self.h0, taps = self.output_taps),
+									outputs_info = dict(initial = self.H, taps = self.output_taps),
 									non_sequences = self.params)
 
 		self.act_y = self.output_type(t.dot(h_t, self.W_ho))
@@ -83,7 +84,7 @@ class RNN(object):
 									givens = {
 										self.x: train_x[in_idx0:in_idx1],
 										self.y: train_y[tgt_idx0:tgt_idx1],
-										self.h0: t.cast(self.h, 'float64'),
+										self.H: t.cast(self.h, 'float64'),
 										self.lr: t.cast(learning_rate, 'float32')
 									})
 
@@ -96,7 +97,7 @@ class RNN(object):
 			'W_ih': self.W_ih,
 			'W_hh': self.W_hh,
 			'W_ho': self.W_ho,
-			'h0': self.h0
+			'H': self.H
 		}
 
 		return weights
@@ -105,7 +106,7 @@ class RNN(object):
 		self.W_ih = weights['W_ih']
 		self.W_hh = weights['W_hh']
 		self.W_ho = weights['W_ho']
-		self.h0 = weights['h0']
+		self.H = weights['H']
 
 		self.params = [self.W_ih, self.W_hh, self.W_ho, self.h0]
 
@@ -117,7 +118,7 @@ class RNN(object):
 
 	def setdefaultweights(self, n_in, n_out, n_hid, dtype = theano.config.floatX):
 		# Recurrent activations
-		h =np.zeros((n_hid, n_hid), dtype = dtype)
+		h = np.zeros((n_hid, n_hid), dtype = dtype)
 		self.h = theano.shared(value = h, name = 'h')
 
 		# Input to hidden layer weights
