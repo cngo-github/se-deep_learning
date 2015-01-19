@@ -37,3 +37,6 @@ d = {
 
 model = Model(d)
 model.fit([x], y)
+model.save('test.pkl')
+model.load('test.pkl')
+

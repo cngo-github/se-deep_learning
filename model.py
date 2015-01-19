@@ -26,9 +26,9 @@ class Model(object):
 			self.output_type = params['output_type']
 
 		if not params.has_key('rnn_dtype'):
-			dtype = t.nnet.softmax
+			self.rnn_dtype = t.nnet.softmax
 		else:
-			dtype = params['rnn_dtype']
+			self.rnn_dtype = params['rnn_dtype']
 
 		if not params.has_key('learning_rate'):
 			self.learning_rate = 0.01
@@ -109,7 +109,7 @@ class Model(object):
 		fs = open(path, 'rb')
 		
 		state = pickle.load(fs)
-		self.setState(state)
+		self.__setstate__(state)
 		
 		fs.close()
 
@@ -118,7 +118,7 @@ class Model(object):
 			path = str(uuid.uuid4())
 
 		fs = open(path, 'wb')
-		state = self.getState()
+		state = self.__getstate__()
 		pickle.dump(state, fs, protocol = pickle.HIGHEST_PROTOCOL)
 		fs.close()
 

@@ -48,15 +48,24 @@ class RNN(object):
 		self.setdefaultweights(n_in, n_hid, n_out, dtype)
 
 	def getweights(self):
-		weights = [w.get_value() for w in self.rnn.params]
+		weights = [w.get_value() for w in self.params]
+
+		weights = {
+			'W_ih': self.W_ih,
+			'W_hh': self.W_hh,
+			'W_ho': self.W_ho,
+			'h0': self.h0
+		}
 
 		return weights
 
 	def setweights(self, weights):
-		w = iter(weights)
+		self.W_ih = weights['W_ih']
+		self.W_hh = weights['W_hh']
+		self.W_ho = weights['W_ho']
+		self.h0 = weights['h0']
 
-		for param in self.params:
-			param.set_value(w.next)
+		self.params = [self.W_ih, self.W_hh, self.W_ho, self.h0]
 
 	def setscanfn(self):
 		[self.h, self.y_pred], _ = theano.scan(fn = self.step,
