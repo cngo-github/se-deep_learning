@@ -2,129 +2,115 @@
 	It will parse the corpus file and generate the corpus.  It will also provide the one-hot
 	encoding for the specified token.
 '''
+import logging
 
-import math
 import numpy as np
 
 class Corpus:
-	def __init__(self, in_file, total_classes = None):
-		self.in_file = in_file
-		self.total_classes = total_classes
-
-		self.buildVocabulary()
+	def __init__(self):
+		self.vocabulary = []
 
 	'''
 		Reads the file passed in and generates the vocabulary and list of tokens from it.
 	'''
-	def buildVocabulary(self):
-		print("Reading file: ", self.in_file)
-		inFile = open(self.in_file, 'r')
+	def buildVocabulary(self, filepath):
+		logging.info("Building vocabulary from file: " + filepath)
 
-		self.vocabulary = {}
+		fs = open(filepath, 'r')
+		tmp = set()
 
-		for line in inFile:
+		for line in fs:
+			line = line.strip().split()
+			tmp.update(line)
+
+		fs.close()
+		self.vocabulary = list(tmp)
+		logging.info("Vocabulary created.")
+
+	def saveVocabulary(self, filepath):
+		fs = open(filepath, 'w')
+
+		for s in self.vocabulary:
+			fs.write(s + '\n')
+
+		fs.close()
+
+		logging.info('Saved vocabulary to file ' + filepath)
+
+	def loadVocabulary(self, filepath):
+		fs = open(filepath, 'r')
+		tmp = set()
+
+		for line in fs:
+			tmp.update(line.strip())
+
+		self.vocabulary = list(tmp)
+		logging.info('Vocabulary loaded from file ', filepath)
+
+	def encodeNextLine(self, filestream):
+		line = filestream.readline()
+
+		if line == '':
+			logging.info('The end of the file has been reached.')
+			return (None, None)
+
+		line = line.strip()
+
+		while not line:
+			line = filestream.readline()
+
+			if line == '':
+				logging.info('The end of the file has been reached.')
+				return (None, None)
+
 			line = line.strip()
-			lineSplit = line.split()
 
-			for token in lineSplit:
-				if token in self.vocabulary:
-					self.vocabulary[token]['count'] += 1
-				else:
-					self.vocabulary[token] = {'count': 1}
+		if line:
+			print(line)
+			return self.encodeLine(line)
 
-		inFile.close()
-		self.vocabList = list(self.vocabulary)
-		self.vocabSize = len(self.vocabList)
-		print('\nVocabulary created.')
+	def encodeLine(self, line):
+		retList = []
 
-	def calcTokenProbability(self):
-		max_probability = 0
-		min_probability = 100
+		logging.debug('One-hot encoding line: ', line)
 
-		for k, v in self.vocabulary.items():
-			prob = (v['count'] / self.vocab_token_count) * 100
-			self.vocabulary[k]['probability'] = prob
+		line = line.strip().split()
+		target = None
 
-			if max_probability < prob:
-				max_probability = prob
+		for token in line:
+			target = self.encode(token)
+			retList.append(target)
 
-			if min_probability > prob:
-				min_probability = prob
+		return (retList, target)
 
-		self.max_probability = max_probability
-		self.min_probability = min_probability
+	def encodeNextN(self, filestream, sequences = 5, step = 3, line = None):
+		retList = []
 
-	def buildClasses(self):
-		if not self.total_classes:
-			class_cnt = math.ceil(math.sqrt(self.input_size))
-		else:
-			class_cnt = self.total_classes
+		if not line:
+			logging.debug('Reading left over tokens from: ' + line)
 
-		class_size = (self.max_probability - self.min_probability) / class_cnt
+		line = readNextNotEmptyLine(filestream)
 
-		self.classes = []
-		for i in range(class_cnt):
-			self.classes.append([])
+	def readNextNotEmptyLine(self, filestream):
+		line = fs.readline()
 
-		for k, v in self.vocabulary.items():
-			prob = (self.max_probability - v['probability']) / class_size
-			prob = int(prob)
+		if line == '':
+			logging.info('The end of the file has been reached.')
+			return None
 
-			if prob >= class_cnt:
-				prob = class_cnt - 1
+		line = line.strip()
 
-			self.classes[prob].append(k)
+		while not line:
+			line = filestream.readline()
 
-		unfilled = True;
-		while unfilled:
-			empty = []
-			j = 0
+			if line == '':
+				logging.info('The end of the file has been reached.')
+				return None
 
-			for i in range(class_cnt):
-				if not self.classes[i]:
-					empty.append(i)
-					j += 1
-				elif empty:
-					self.smoothClasses(empty, i)
-					empty = []
+			line = line.strip()
 
-			if not empty and j > 0:
-				unfilled = True
-			else:
-				unfilled = False
+		return line
 
-		self.max_class_size = 0
-		for i in self.classes:
-			if self.max_class_size < len(i):
-				self.max_class_size = len(i)
-
-	def smoothClasses(self, empty_list, populated_index):
-		source = self.classes[populated_index]
-		self.classes[populated_index] = []
-
-		source = sorted(source, key = lambda token: self.vocabulary[token]['count'])
-
-		empty_list.append(populated_index)
-
-		distrib_cnt = int(len(source) / len(empty_list))
-
-		if distrib_cnt < 1:
-			distrib_cnt = 1
-
-		while empty_list:
-			i = empty_list.pop(0)
-			j = 0
-
-			while j < distrib_cnt and source:
-				self.classes[i].append(source.pop())
-				j += 1
-
-		while source:
-			self.classes[populated_index].append(source.pop())
-
-	'''
-		Returns the tokens as a series of one-hot encoded vectors.
-	'''
 	def encodeAllTokens(self, inFile):
 		inFile = open(inFile, 'r')
 		retList = []
@@ -135,21 +121,20 @@ class Corpus:
 			lineSplit = line.split()
 
 			for token in lineSplit:
-#				print(token)
-				retList.append(self.encodeToken(token))
+				retList.append(self.encode(token))
 
 		inFile.close()
 		print("All the tokens have been encoded.")
 
 		return retList
 
-	def encodeToken(self, token):
-		m = np.zeros(self.vocabSize)
+	def encode(self, token):
+		m = np.zeros(len(self.vocabulary))
 
 		try:
-			i = self.vocabList.index(token)
+			i = self.vocabulary.index(token)
 			m[i] = 1
 		except ValueError:
-			print('Token ' + token + ' not in vocabulary list.')
+			logging.error('Token not in vocabulary list: ', token)
 
 		return m
