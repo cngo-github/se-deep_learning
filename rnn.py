@@ -141,10 +141,8 @@ class RNN(object):
 		self.params = [self.W_hh, self.W_ih, self.W_ho]
 
 	def step(self, x_t, *args):
-		print(args)
 		act_recurrent = [args[x] for x in xrange(len(self.output_taps))]
 		weights_recurrent = args[len(self.output_taps)]
-#		[args[x] for x in range(len(self.output_taps), len(self.output_taps) * 2)]
 
 		W_ih = args[len(self.output_taps) * 2]
 
@@ -156,7 +154,3 @@ class RNN(object):
 		h_t = self.activation(theano.dot(x_t, W_ih) + activations)
 
 		return h_t
-
-#	def output(self):
-#		self.prob_y = self.activation(T.dot(self.h_t, self.w_ho))
-#		self.y_out = t.argmax(self.prob_y, axis = -1)
