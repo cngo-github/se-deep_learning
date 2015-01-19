@@ -7,14 +7,29 @@ import cPickle as pickle
 import theano
 import uuid
 import logging
+import time
 
 class Model(object):
 	def __init__(self, params):
-		print(params)
 		self.setparams(params)
 		self.ready()
 
 	def setparams(self, params):
+		if not params.has_key('samples'):
+			self.samples = 1
+		else:
+			self.samples = params['samples']
+
+		if not params.has_key('batch'):
+			self.batch = 1
+		else:
+			self.batch = params['batch']
+
+		if not params.has_key('seqlen'):
+			self.seqlen = 1
+		else:
+			self.seqlen = params['seqlen']
+
 		if not params.has_key('activation'):
 			self.activation = t.nnet.sigmoid
 		else:
@@ -26,7 +41,7 @@ class Model(object):
 			self.output_type = params['output_type']
 
 		if not params.has_key('rnn_dtype'):
-			self.rnn_dtype = t.nnet.softmax
+			self.rnn_dtype = theano.config.floatX
 		else:
 			self.rnn_dtype = params['rnn_dtype']
 
@@ -40,6 +55,7 @@ class Model(object):
 		else:
 			self.n_epochs = int(params['n_epochs'])
 
+		# RNN parameters
 		if not params.has_key('n_in'):
 			self.n_in = 5
 		else:
@@ -72,26 +88,41 @@ class Model(object):
 		return params
 
 	def ready(self):
-		# input
-		self.x = t.matrix()
+		params = {
+			'n_in': self.n_in,
+			'n_hid': self.n_hid,
+			'n_out': self.n_out,
+			'activation': self.activation,
+			'output_type': self.output_type,
+			'dtype': self.rnn_dtype
+		}
 
-		# target
-		self.y = t.vector(name = 'y', dtype = 'int32')
+		self.rnn = RNN(params)
 
-		self.h0 = t.vector()
-		self.lr = t.scalar()
+	def fit(self, inputs, target):
+		shared_x, shared_y = self.share_datasets((inputs, target))
+		trainfn = self.rnn.gettrainfn(shared_x, shared_y, self.learning_rate)
 
-		self.rnn = RNN(input = self.x, n_in = self.n_in, n_hid = self.n_hid, n_out = self.n_out,
-						activation = self.activation, output_type = self.output_type,
-						dtype = self.rnn_dtype);
+		inIdx = [i * self.seqlen * self.batch for i in xrange(self.samples + 1)]
+		tgtIdx = inIdx
+		seq = {
+			'inputs': inIdx,
+			'targets': tgtIdx
+		}
 
-		self.setpredictfn()
+		start_time = time.clock()
+		logging.info('Running ({} epochs)'.format(self.n_epochs))
 
-	def setpredictfn(self):
-		self.predict_probability = theano.function(inputs = [self.x, ],
-										outputs = self.rnn.prob_y)
-		self.predict = theano.function(inputs = [self.x, ],
-							outputs = self.rnn.y_out)
+		for _ in xrange(self.n_epochs):
+			for i in range(0, self.samples, self.batch):
+				trainfn(seq['inputs'][i], seq['inputs'][i + self.batch], seq['targets'][i], seq['targets'][i + self.batch])
+		logging.info('===== training epoch time (%.5fm)' % ((time.clock() - start_time) / 60))
+
+#	def setpredictfn(self):
+#		self.predict_probability = theano.function(inputs = [self.x, ],
+#										outputs = self.rnn.prob_y)
+#		self.predict = theano.function(inputs = [self.x, ],
+#							outputs = self.rnn.y_out)
 
 	def __getstate__(self):
 		params = self.getparams()
@@ -113,6 +144,7 @@ class Model(object):
 		self.__setstate__(state)
 		
 		fs.close()
+		logging.info("Model state loaded.")
 
 	def save(self, path = None):
 		if not path:
@@ -125,45 +157,21 @@ class Model(object):
 
 		logging.info("Model state saved to file " + path)
 
-	def ready(self):
-		# input (where first dimension is time)
-		self.x = t.matrix()
-
-		# target (where first dimension is time)
-		self.y = t.vector(name='y', dtype='int32')
-
-	    # initial hidden state of the RNN
-		self.h0 = t.vector()
-
-	        # learning rate
-		self.lr = t.scalar()
-
-		d = {
-			'input': self.x,
-			'n_in': self.n_in,
-			'n_hid': self.n_hid,
-			'n_out': self.n_out
-		}
-		self.rnn = RNN(d)
-
-		self.predict_proba = theano.function(inputs=[self.x, ],
-											outputs=self.rnn.prob_y)
-		self.predict = theano.function(inputs=[self.x, ],
-									outputs=self.rnn.y_out)
+#		self.predict_proba = theano.function(inputs=[self.x, ],
+#											outputs=self.rnn.prob_y)
+#		self.predict = theano.function(inputs=[self.x, ],
+#									outputs=self.rnn.y_out)
 
 	def share_datasets(self, data_xy):
 		""" Load the dataset into shared variables """
 
 		data_x, data_y = data_xy
 		
-		shared_x = theano.shared(np.asarray(data_x,
-						dtype=theano.config.floatX))
-
-		shared_y = theano.shared(np.asarray(data_y,
-						dtype=theano.config.floatX))
+		shared_x = theano.shared(np.asarray(data_x, dtype= theano.config.floatX))
+		shared_y = theano.shared(np.asarray(data_y, dtype= theano.config.floatX))
 
 		return shared_x, t.cast(shared_y, 'int32')
-
+'''
 	def fit(self, X_train, Y_train, X_test=None, Y_test=None,
 			validation_frequency=100):
 		""" Fit model
@@ -288,3 +296,4 @@ class Model(object):
 #							this_train_loss, self.learning_rate))
 
 #			self.learning_rate *= self.learning_rate_decay
+'''

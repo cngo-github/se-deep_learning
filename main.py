@@ -7,11 +7,60 @@ import numpy as np
 from corpus import Corpus
 from model import Model
 
-logging.basicConfig(level = logging.DEBUG)
+logging.basicConfig(level = logging.INFO)
 
-c = Corpus("test")
+filepath = 'test'
 
-x = c.encodeAllTokens("test")
+c = Corpus()
+c.buildVocabulary(filepath)
+c.saveVocabulary('vocab')
+
+fs = open(filepath, 'r')
+
+#model = None
+#x = c.encodeAllTokens(filepath)
+#n_in = len(x[0])
+#n_hid = 10
+#n_out = n_in
+#params = {
+#	'n_in': n_in,
+#	'n_hid': n_hid,
+#	'n_out': n_out,
+#}
+#print(x)
+#if not model:
+#	model = Model(params)
+#y = np.zeros((5, 5), dtype = np.int)
+#model.fit([x], x)
+#x, target = c.encodeNextLine(fs)
+#model.fit(x, y)
+#input("waiting")
+
+x, target = c.encodeNextLine(fs)
+model = None
+
+while x and target.any():
+	n_in = len(x[0])
+	n_hid = n_in
+	n_out = n_in
+
+	params = {
+		'n_in': n_in,
+		'n_hid': n_hid,
+		'n_out': n_out,
+	}
+
+	if not model:
+		model = Model(params)
+
+	model.fit(x, target)
+
+	x, target = c.encodeNextLine(fs)
+
+fs.close()
+
+'''
+#x = c.encodeAllTokens("test")
 
 if len(x):
 	n_in = len(x[0])
@@ -43,3 +92,4 @@ model = Model(d)
 model.fit([x], y)
 model.save('test.pkl')
 model.load('test.pkl')
+'''
