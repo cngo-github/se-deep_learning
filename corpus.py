@@ -83,14 +83,6 @@ class Corpus:
 
 		return (retList, target)
 
-	def encodeNextN(self, filestream, sequences = 5, step = 3, line = None):
-		retList = []
-
-		if not line:
-			logging.debug('Reading left over tokens from: ' + line)
-
-		line = readNextNotEmptyLine(filestream)
-
 	def readNextNotEmptyLine(self, filestream):
 		line = fs.readline()
 
