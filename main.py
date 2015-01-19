@@ -1,9 +1,13 @@
 import theano
+import logging
+
 import theano.tensor as t
 import numpy as np
 
 from corpus import Corpus
 from model import Model
+
+logging.basicConfig(level = logging.DEBUG)
 
 c = Corpus("test")
 

@@ -108,6 +108,7 @@ class Model(object):
 	def load(self, path):
 		fs = open(path, 'rb')
 		
+		logging.info("Model state loading from file " + path)
 		state = pickle.load(fs)
 		self.__setstate__(state)
 		
@@ -121,6 +122,8 @@ class Model(object):
 		state = self.__getstate__()
 		pickle.dump(state, fs, protocol = pickle.HIGHEST_PROTOCOL)
 		fs.close()
+
+		logging.info("Model state saved to file " + path)
 
 	def ready(self):
 		# input (where first dimension is time)
