@@ -29,5 +29,11 @@ y = np.zeros((n_seq, n_steps), dtype = np.int)
 #x = np.asanyarray(x, dtype = np.float)
 #x.astype(np.float)
 
-model = Model(n_in, n_hid, n_out, n_classes)
+d = {
+	'n_in': n_in,
+	'n_hid': n_hid,
+	'n_out': n_out,
+}
+
+model = Model(d)
 model.fit([x], y)
