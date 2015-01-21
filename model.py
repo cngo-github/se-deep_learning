@@ -5,6 +5,7 @@ from rnn import RNN
 
 import theano
 import logging
+import time
 
 class Model(object):
 	def __init__(self, logger, params = None):
@@ -105,6 +106,8 @@ class Model(object):
 			epoch += 1
 
 			for i in xrange(n_train):
+				t0 = time.time()
+
 				eff_momentum = self.final_momentum \
 									if epoch > self.momentum_switchover \
 									else self.initial_momentum
@@ -120,13 +123,13 @@ class Model(object):
 						test_losses = [test_error(j) for j in xrange(n_test)]
 						test_losses = np.mean(test_losses)
 
-						self.logger.info('epoch {}, seq {} / {}, training losses {}, test losses {}, learning rate {}.'.format(
+						self.logger.info('epoch {}, seq {} / {}, training losses {}, test losses {}, learning rate {}, elasped time {}.'.format(
 											epoch, i + 1, n_train, train_losses,
-											test_losses, self.learning_rate))
+											test_losses, self.learning_rate, time.time() - t0))
 					else:
-						self.logger.info('epoch {}, seq {} / {}, training losses {}, learning rate {}.'.format(
+						self.logger.info('epoch {}, seq {} / {}, training losses {}, learning rate {}, elasped time {}.'.format(
 											epoch, i + 1, n_train, train_losses,
-											self.learning_rate))
+											self.learning_rate, time.time() - t0))
 
 
 	def share_dataset(self, data_x, data_y):

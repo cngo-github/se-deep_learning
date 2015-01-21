@@ -11,13 +11,14 @@ from model import Model
 import matplotlib.pyplot as plt
 plt.ion()
 
+logging.basicConfig(filename = 'log', level = logging.INFO)
 logger = logging.getLogger('test')
-logger.setLevel(logging.INFO)
+#logger.setLevel(logging.INFO)
 
 filepath = 'training_test'
 vocab = 'vocab_train'
 
-c = Corpus()
+c = Corpus(logger)
 c.loadVocabulary(vocab)
 
 n_hid = 50
