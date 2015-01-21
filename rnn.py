@@ -1,157 +1,139 @@
+import numpy as np
+import theano.tensor as t
+
 import theano
 
-import theano.tensor as t
-import numpy as np
+from collections import defaultdict
 
 class RNN(object):
-	def __init__(self, params):
-		self.setparams(params)
+	def __init__(self, input, n_in, n_hid, n_out, activation = t.nnet.sigmoid,
+				dtype = theano.config.floatX):
+		self.x = input
+		self.n_in = n_in
+		self.n_hid = n_hid
+		self.n_out = n_out
+		self.activation = activation
+		self.dtype = dtype
+
 		self.ready()
 
-	def ready(self):
-		self.x = t.matrix(name = 'x')
-		self.y = t.ivector(name = 'y')
-		self.H = t.matrix()
-		self.lr = t.fscalar()
+	def ready(self, weights = None):
+		# Set the values of the weights
+		weights = self.defaultweights(weights)
+		self.setweights(weights)
 
-		h_t, updates = theano.scan(fn = self.step,
-									sequences = dict(input= self.x, taps = [0]),
-									outputs_info = dict(initial = self.H, taps = self.output_taps),
-									non_sequences = self.params)
-
-		self.act_y = self.output_type(t.dot(h_t, self.W_ho))
-		self.y_out = t.argmax(self.act_y, axis = -1)
-		self.cost = -t.mean(t.log(self.act_y)[t.arange(self.y.shape[0]), self.y])
-
-	def setparams(self, params):
-		if not params.has_key('activation'):
-			self.activation = t.nnet.sigmoid
-		else:
-			self.activation = params['activation']
-
-		if not params.has_key('output_type'):
-			self.output_type = t.nnet.softmax
-		else:
-			self.output_type = params['output_type']
-
-		if not params.has_key('dtype'):
-			dtype = theano.config.floatX
-		else:
-			dtype = params['dtype']
-
-		if not params.has_key('output_taps'):
-			self.output_taps = [-1, 0]
-		else:
-			self.output_taps = params['output_taps']
-
-		#Check for required parameters: n_in, n_hid, n_out, input
-		if not params.has_key('n_in'):
-			raise ValueError("Missing required parameter: n_in")
-		else:
-			n_in = params['n_in']
-
-		if not params.has_key('n_hid'):
-			raise ValueError("Missing required parameter: n_hid")
-		else:
-			n_hid = params['n_hid']
-
-		if not params.has_key('n_out'):
-			raise ValueError("Missing required parameter: n_out")
-		else:
-			n_out = params['n_out']
-
-		self.setdefaultweights(n_in, n_hid, n_out, dtype)
-
-	def gettrainfn(self, train_x, train_y, learning_rate):
-		in_idx0 = t.iscalar(name = 'input_start')
-		in_idx1 = t.iscalar(name = 'input_stop')
-		tgt_idx0 = t.iscalar(name = 'target_start')
-		tgt_idx1 = t.iscalar(name = 'target_stop')
-
-		gparams = []
+		# Needed for updating 
+		self.updates = {}
 
 		for param in self.params:
-			gparam = t.grad(self.cost, param, disconnected_inputs = 'warn')
-			gparams.append(gparam)
+			init = np.zeros(param.get_value(borrow = True).shape,
+						dtype = self.dtype)
+			self.updates[param] = theano.shared(init)
 
-		updates = {}
-		for param, gparam in zip(self.params, gparams):
-			updates[param] = param - self.lr * gparam
+		# The "RNN" part of the RNN.  h is the hidden state for the sequence
+		# and y_pred is the output for the sequence.
+		[self.h, self.y_pred], _ = theano.scan(self.step,
+										sequences = self.x,
+										outputs_info = [self.h0, None])
 
-		trainfn = theano.function(inputs = [in_idx0] + [in_idx1] + [tgt_idx0] + [tgt_idx1],
-									outputs = self.cost,
-									updates = updates,
-									givens = {
-										self.x: train_x[in_idx0:in_idx1],
-										self.y: train_y[tgt_idx0:tgt_idx1],
-										self.H: t.cast(self.h, 'float64'),
-										self.lr: t.cast(learning_rate, 'float32')
-									})
+		# Set the normilizations if they aren't set.
+		try:
+			self.L1
+		except AttributeError:
+			self.L1 = 0
+			self.L1 += abs(self.W.sum())
+			self.L1 += abs(self.W_ih.sum())
+			self.L1 += abs(self.W_ho.sum())
 
-		return trainfn
+		try:
+			self.L2_sqr
+		except AttributeError:
+			self.L2_sqr = 0
+			self.L2_sqr += (self.W ** 2).sum()
+			self.L2_sqr += (self.W_ih ** 2).sum()
+			self.L2_sqr += (self.W_ho ** 2).sum()
+
+		self.probability_y = t.nnet.softmax(self.y_pred)
+		self.y_out = t.argmax(self.probability_y, axis = -1)
+
+	def setweights(self, weights = None):
+		'''
+			Sets the weights for the RNN based on what is provided.
+		'''
+		try:
+			self.W.set_value(weights.get('W'))
+		except AttributeError:
+			self.W = theano.shared(value = weights.get('W'), name = 'W')
+
+		try:
+			self.W_ih.set_value(weights.get('W_ih'))
+		except AttributeError:
+			self.W_ih = theano.shared(value = weights.get('W_ih'), name = 'W_ih')
+
+		try:
+			self.W_ho.set_value(weights.get('W_ho'))
+		except AttributeError:
+			self.W_ho = theano.shared(value = weights.get('W_ho'), name = 'W_ho')
+
+		try:
+			self.h0.set_value(weights.get('h0'))
+		except AttributeError:
+			self.h0 = theano.shared(value = weights.get('h0'), name = 'h0')
+
+		self.params = [self.W, self.W_ih, self.W_ho, self.h0]
 
 	def getweights(self):
-		weights = [w.get_value() for w in self.params]
-
-		weights = {
-			'W_ih': self.W_ih,
-			'W_hh': self.W_hh,
-			'W_ho': self.W_ho,
-			'H': self.H
+		d = {
+			'W': self.W.get_value(),
+			'W_ih': self.W_ih.get_value(),
+			'W_ho': self.W_ho.get_value(),
+			'h0': self.h0.get_value()
 		}
 
+		return d
+
+	def errors(self, y):
+		'''
+			A float representing the number of errors in the
+			sequence.
+		'''
+		if y.ndim == self.y_out.ndim:
+			return t.mean(t.neq(self.y_out, y))
+
+	def step(self, x_t, h_tm1):
+		'''
+			The calculations that are run every RNN iteration.
+		'''
+		h_t = self.activation(t.dot(x_t, self.W_ih) + t.dot(h_tm1, self.W))
+		y_t = t.dot(h_t, self.W_ho)
+
+		return h_t, y_t
+
+	def loss(self, y):
+		return -t.mean(t.log(self.probability_y)[t.arange(y.shape[0]), y])
+
+	def defaultweights(self, weights = None):
+		'''
+			Provides the default weights for the RNN to use if they are not provided.
+			If the weights are provided, the provided weights will be used instead.
+		'''
+		d = {
+			'W': np.asarray(np.random.uniform(size = (self.n_hid, self.n_hid),
+							low = -0.01, high = 0.01),
+							dtype = self.dtype),
+			'W_ih': np.asarray(np.random.uniform(size = (self.n_in, self.n_hid),
+							low = -0.01, high = 0.01),
+							dtype = self.dtype),
+			'W_ho': np.asarray(np.random.uniform(size = (self.n_hid, self.n_out),
+							low = -0.01, high = 0.01),
+							dtype = self.dtype),
+			'h0': np.zeros((self.n_hid,), dtype = self.dtype)
+		}
+
+		if weights is None:
+			return d
+
+		for key in d.keys():
+			weights[key] = weights.get(key) or d.get(keys)
+
 		return weights
-
-	def setweights(self, weights):
-		self.W_ih = weights['W_ih']
-		self.W_hh = weights['W_hh']
-		self.W_ho = weights['W_ho']
-		self.H = weights['H']
-
-		self.params = [self.W_ih, self.W_hh, self.W_ho, self.h0]
-
-#	def setscanfn(self):
-#		self.h_t, updates = theano.scan(fn = self.step,
-#									sequences = dict(input=self.input, taps = [0]),
-#									outputs_info = dict(initial = self.h0, taps = self.output_taps),
-#									non_sequences = self.params)
-
-	def setdefaultweights(self, n_in, n_out, n_hid, dtype = theano.config.floatX):
-		# Recurrent activations
-		h = np.zeros((n_hid, n_hid), dtype = dtype)
-		self.h = theano.shared(value = h, name = 'h')
-
-		# Input to hidden layer weights
-		W_ih = np.asarray(np.random.uniform(size=(n_in, n_hid),
-						low= -.01, high= .01),
-						dtype = dtype)
-		self.W_ih = theano.shared(value = W_ih, name = 'W_ih')
-
-		# Recurrent weights
-		W_hh = np.asarray(np.random.uniform(size = (n_hid, n_hid),
-						low = -.01, high = .01),
-						dtype = dtype)
-		self.W_hh = theano.shared(value = W_hh, name = 'W_hh')
-
-		# hidden to output layer weights
-		W_ho = np.asarray(np.random.uniform(size = (n_hid, n_out),
-						low = -.01, high = .01),
-						dtype = dtype)
-		self.W_ho = theano.shared(value = W_ho, name = 'W_ho')
-
-		self.params = [self.W_hh, self.W_ih, self.W_ho]
-
-	def step(self, x_t, *args):
-		act_recurrent = [args[x] for x in xrange(len(self.output_taps))]
-		weights_recurrent = args[len(self.output_taps)]
-
-		W_ih = args[len(self.output_taps) * 2]
-
-		activations = theano.dot(act_recurrent[0], weights_recurrent[0])
-
-		for x in xrange(1, len(self.output_taps)):
-			activations += t.dot(act_recurrent[x], weights_recurrent[x])
-
-		h_t = self.activation(theano.dot(x_t, W_ih) + activations)
-
-		return h_t

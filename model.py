@@ -1,302 +1,253 @@
+import numpy as np
+import theano.tensor as t
+
 from rnn import RNN
 
-import theano.tensor as t
-import numpy as np
-import cPickle as pickle
-
 import theano
-import uuid
 import logging
-import time
 
 class Model(object):
-	def __init__(self, params):
+	def __init__(self, logger, params = None):
+		self.logger = logger
+
+		self.ready(params)
+
+	def ready(self, params = None):
+		'''
+			Sets up the model.
+		'''
+		self.x = t.matrix()
+		self.y = t.vector(name = 'y', dtype = 'int32')
+		self.h0 = t.vector()
+		self.lr = t.scalar()
+
+		params = self.defaultparams(params)
 		self.setparams(params)
-		self.ready()
 
-	def setparams(self, params):
-		if not params.has_key('samples'):
-			self.samples = 1
+		self.rnn = RNN(input = self.x, n_in = self.n_in, n_hid = self.n_hid,
+						n_out = self.n_out, activation = self.activation)
+
+		self.predict_probability = theano.function(inputs = [self.x,],
+												outputs = self.rnn.probability_y)
+		self.predict = theano.function(inputs = [self.x,],
+										outputs = self.rnn.y_out)
+
+	def fit(self, x_train, y_train, x_test = None, y_test = None, validation_freq = 100):
+		'''
+			Creates and trains the model.
+		'''
+		if x_test is not None and y_test is not None:
+			self.runtests = True
+			test_x, test_y = self.share_dataset(x_test, y_test)
 		else:
-			self.samples = params['samples']
+			self.runtests = False
 
-		if not params.has_key('batch'):
-			self.batch = 1
-		else:
-			self.batch = params['batch']
+		train_x, train_y = self.share_dataset(x_train, y_train)
+		n_train = train_x.get_value(borrow = True).shape[0]
 
-		if not params.has_key('seqlen'):
-			self.seqlen = 1
-		else:
-			self.seqlen = params['seqlen']
+		'''
+			Creates the model.
+		'''
+		self.logger.info('Building the model...')
 
-		if not params.has_key('activation'):
-			self.activation = t.nnet.sigmoid
-		else:
-			self.activation = params['activation']
+		idx = t.lscalar('index')
+		l_r = t.scalar(name = 'l_r', dtype = theano.config.floatX)
+		mom = t.scalar(name = 'mom', dtype = theano.config.floatX)
 
-		if not params.has_key('output_type'):
-			self.output_type = t.nnet.softmax
-		else:
-			self.output_type = params['output_type']
+		cost = self.rnn.loss(self.y) + self.L1_reg * self.rnn.L1 \
+				+ self.L2_reg * self.rnn.L2_sqr
 
-		if not params.has_key('rnn_dtype'):
-			self.rnn_dtype = theano.config.floatX
-		else:
-			self.rnn_dtype = params['rnn_dtype']
+		train_error = theano.function(inputs = [idx,],
+									outputs = self.rnn.loss(self.y),
+									givens = {
+										self.x: train_x[idx],
+										self.y: train_y[idx]
+									})
 
-		if not params.has_key('learning_rate'):
-			self.learning_rate = 0.01
-		else:
-			self.learning_rate = float(params['learning_rate'])
+		if self.runtests:
+			test_error = theano.function(inputs = [idx,],
+									outputs = self.rnn.loss(self.y),
+									givens = {
+										self.x: test_x[idx],
+										self.y: test_y[idx]
+									})
 
-		if not params.has_key('n_epochs'):
-			self.n_epochs = 1000
-		else:
-			self.n_epochs = int(params['n_epochs'])
+		# Compute the cost gradients with BPTT
+		gparams = []
+		for param in self.rnn.params:
+			gparam = t.grad(cost, param)
+			gparams.append(gparam)
 
-		# RNN parameters
-		if not params.has_key('n_in'):
-			self.n_in = 5
-		else:
-			self.n_in = int(params['n_in'])
+		updates = {}
+		for param, gparam in zip(self.rnn.params, gparams):
+			update = self.rnn.updates[param]
+			u = mom * update - l_r * gparam
 
-		if not params.has_key('n_hid'):
-			self.n_hid = 50
-		else:
-			self.n_hid = int(params['n_hid'])
+			updates[update] = u
+			updates[param] = param + u
 
-		if not params.has_key('n_out'):
-			self.n_out = 5
-		else:
-			self.n_out = int(params['n_out'])
+		# The function to train the model.
+		train_model = theano.function(inputs = [idx, l_r, mom],
+									outputs = cost,
+									updates = updates,
+									givens = {
+										self.x: train_x[idx],
+										self.y: train_y[idx]
+									})
 
-		self.ready()
+		'''
+			Train the model
+		'''
+		self.logger.info('Training the model...')
+		epoch = 0
 
-	def getparams(self):
-		params = {
-			'n_in': self.n_in,
-			'n_hid': self.n_hid,
-			'n_out': self.n_out,
-			'learning_rate': self.learning_rate,
-			'n_epochs': self.n_epochs,
-			'rnn_dtype': self.rnn_dtype,
-			'activation': self.activation,
-			'output_type': self.output_type,
-			'samples': self.samples,
-			'batch': self.batch,
-			'seqlen': self.seqlen
-		}
+		while epoch < self.n_epochs:
+			epoch += 1
 
-		return params
+			for i in xrange(n_train):
+				eff_momentum = self.final_momentum \
+									if epoch > self.momentum_switchover \
+									else self.initial_momentum
+				example_cost = train_model(i, self.learning_rate, eff_momentum)
 
-	def ready(self):
-		params = {
-			'n_in': self.n_in,
-			'n_hid': self.n_hid,
-			'n_out': self.n_out,
-			'activation': self.activation,
-			'output_type': self.output_type,
-			'dtype': self.rnn_dtype
-		}
+				itr = (epoch - 1) * n_train + i + 1
 
-		self.rnn = RNN(params)
+				if itr % validation_freq == 0:
+					train_losses = [train_error(j) for j in xrange(n_train)]
+					train_losses = np.mean(train_losses)
 
-	def fit(self, inputs, target):
-		shared_x, shared_y = self.share_datasets((inputs, target))
-		trainfn = self.rnn.gettrainfn(shared_x, shared_y, self.learning_rate)
+					if self.runtests:
+						test_losses = [test_error(j) for j in xrange(n_test)]
+						test_losses = np.mean(test_losses)
 
-		inIdx = [i * self.seqlen * self.batch for i in xrange(self.samples + 1)]
-		tgtIdx = inIdx
-		seq = {
-			'inputs': inIdx,
-			'targets': tgtIdx
-		}
+						self.logger.info('epoch {}, seq {} / {}, training losses {}, test losses {}, learning rate {}.'.format(
+											epoch, i + 1, n_train, train_losses,
+											test_losses, self.learning_rate))
+					else:
+						self.logger.info('epoch {}, seq {} / {}, training losses {}, learning rate {}.'.format(
+											epoch, i + 1, n_train, train_losses,
+											self.learning_rate))
 
-		start_time = time.clock()
-		logging.info('Running ({} epochs)'.format(self.n_epochs))
 
-		for _ in xrange(self.n_epochs):
-			for i in range(0, self.samples, self.batch):
-				trainfn(seq['inputs'][i], seq['inputs'][i + self.batch], seq['targets'][i], seq['targets'][i + self.batch])
-		logging.info('===== training epoch time (%.5fm)' % ((time.clock() - start_time) / 60))
+	def share_dataset(self, data_x, data_y):
+		'''
+			Load the datasets into shared variables.
+		'''
+		shared_x = theano.shared(np.asarray(data_x, dtype = theano.config.floatX))
+		shared_y = theano.shared(np.asarray(data_y, dtype = theano.config.floatX))
 
-#	def setpredictfn(self):
-#		self.predict_probability = theano.function(inputs = [self.x, ],
-#										outputs = self.rnn.prob_y)
-#		self.predict = theano.function(inputs = [self.x, ],
-#							outputs = self.rnn.y_out)
+		return shared_x, t.cast(shared_y, 'int32')
 
 	def __getstate__(self):
+		'''
+			Returns the current state of the model and RNN.
+		'''
 		params = self.getparams()
 		weights = self.rnn.getweights()
 
 		return (params, weights)
 
 	def __setstate__(self, state):
+		'''
+			Sets the parameters for the model and RNN.
+		'''
 		params, weights = state
 
 		self.setparams(params)
+		self.ready()
 		self.rnn.setweights(weights)
 
 	def load(self, path):
+		'''
+			Unpickles a pickled model.
+		'''
 		fs = open(path, 'rb')
-		
-		logging.info("Model state loading from file " + path)
+
+		self.logger.info('Model state loading from file {}.'.format(path))
+
 		state = pickle.load(fs)
 		self.__setstate__(state)
-		
+
 		fs.close()
-		logging.info("Model state loaded.")
+
+		self.logger.info('Model state loaded.')
 
 	def save(self, path = None):
-		if not path:
+		'''
+			Pickles the model.
+		'''
+		if path is None:
 			path = str(uuid.uuid4())
 
 		fs = open(path, 'wb')
+
 		state = self.__getstate__()
 		pickle.dump(state, fs, protocol = pickle.HIGHEST_PROTOCOL)
+
 		fs.close()
 
-		logging.info("Model state saved to file " + path)
+		self.logger.info('Model state saved to file {}.'.format(path))
 
-#		self.predict_proba = theano.function(inputs=[self.x, ],
-#											outputs=self.rnn.prob_y)
-#		self.predict = theano.function(inputs=[self.x, ],
-#									outputs=self.rnn.y_out)
+	def setparams(self, params):
+		'''
+			Sets the parameters of the model and RNN.
+		'''
+		self.n_in = params.get('n_in')
+		self.n_hid = params.get('n_hid')
+		self.n_out = params.get('n_out')
+		self.n_epochs = params.get('n_epochs')
+		self.learning_rate = params.get('learning_rate')
+		self.activation = params.get('activation')
+		self.L1_reg = params.get('L1_reg')
+		self.L2_reg = params.get('L2_reg')
+		self.initial_momentum = params.get('initial_momentum')
+		self.final_momentum = params.get('final_momentum')
+		self.momentum_switchover = params.get('momentum_switchover')
 
-	def share_datasets(self, data_xy):
-		""" Load the dataset into shared variables """
+	def getparams(self):
+		'''
+			Gets the parameters of the model.
+		'''
+		d = {
+			'n_in': self.n_in,
+			'n_hid': self.n_hid,
+			'n_out': self.n_out,
+			'n_epochs': self.n_epochs,
+			'learning_rate': self.learning_rate,
+			'activation': self.activation,
+			'L1_reg': self.L1_reg,
+			'L2_reg': self.L2_reg,
+			'initial_momentum': self.initial_momentum,
+			'final_momentum': self.final_momentum,
+			'momentum_switchover': self.momentum_switchover
+		}
 
-		data_x, data_y = data_xy
-		
-		shared_x = theano.shared(np.asarray(data_x, dtype= theano.config.floatX))
-		shared_y = theano.shared(np.asarray(data_y, dtype= theano.config.floatX))
+		return d
 
-		return shared_x, t.cast(shared_y, 'int32')
-'''
-	def fit(self, X_train, Y_train, X_test=None, Y_test=None,
-			validation_frequency=100):
-		""" Fit model
+	def defaultparams(self, params = None):
+		'''
+			Returns the default parameters for the model or
+			ensures that all the necessary parameters are
+			present.
+		'''
+		d = {
+			'n_in': 5,
+			'n_hid': 50,
+			'n_out': 5,
+			'n_epochs': 100,
+			'learning_rate': 0.01,
+			'activation': t.nnet.sigmoid,
+			'L1_reg': 0.0,
+			'L2_reg': 0.0,
+			'initial_momentum': 0.5,
+			'final_momentum': 0.9,
+			'momentum_switchover': 5
+		}
 
-		Pass in X_test, Y_test to compute test error and report during
-		training.
+		if params is None:
+			return d
 
-		X_train : ndarray (n_seq x n_steps x n_in)
-		Y_train : ndarray (n_seq x n_steps x n_out)
+		for key in d.keys():
+			params[key] = params.get(key) or d.get(key)
 
-		validation_frequency : int
-		in terms of number of sequences (or number of weight updates)
-		"""
-		if X_test is not None:
-			assert(Y_test is not None)
-			self.interactive = True
-			test_set_x, test_set_y = self.shared_dataset((X_test, Y_test))
-		else:
-			self.interactive = False
-
-		train_set_x, train_set_y = self.share_datasets((X_train, Y_train))
-		n_train = train_set_x.get_value(borrow=True).shape[0]
-
-#		if self.interactive:
-#			n_test = test_set_x.get_value(borrow=True).shape[0]
-
-		######################
-		# BUILD ACTUAL MODEL #
-		######################
-#		if self.logger is not None:
-#			self.logger.info('... building the model')
-
-		index = t.lscalar('index')    # index to a case
-		# learning rate (may change)
-		l_r = t.scalar('l_r', dtype=theano.config.floatX)
-#		mom = T.scalar('mom', dtype=theano.config.floatX)  # momentum
-
-		cost = self.rnn.loss(self.y)
-
-		compute_train_error = theano.function(inputs=[index, ],
-						outputs=self.rnn.loss(self.y),
-						givens={
-							self.x: train_set_x[index],
-							self.y: train_set_y[index]})
-
-#		if self.interactive:
-#			compute_test_error = theano.function(inputs=[index, ],
-#					outputs=self.rnn.loss(self.y),
-#					givens={
-#						self.x: test_set_x[index],
-#						self.y: test_set_y[index]},
-#					mode = self.mode)
-
-		# compute the gradient of cost with respect to theta = (W, W_in, W_out)
-		# gradients on the weights using BPTT
-		gparams = []
-		for param in self.rnn.params:
-			gparam = t.grad(cost, param)
-			gparams.append(gparam)
-
-#		updates = {}
-#		for param, gparam in zip(self.rnn.params, gparams):
-#			weight_update = self.rnn.updates[param]
-#			upd = weight_update - l_r * gparam
-#			updates[weight_update] = upd
-#			updates[param] = param + upd
-
-		# compiling a Theano function `train_model` that returns the
-		# cost, but in the same time updates the parameter of the
-		# model based on the rules defined in `updates`
-		train_model = theano.function(inputs = [index, l_r],
-				outputs = cost,
-#				updates=updates,
-				givens={
-					self.x: train_set_x[index],
-					self.y: train_set_y[index]},
-				on_unused_input = "ignore")
-
-		###############
-		# TRAIN MODEL #
-		###############
-#		if self.logger is not None:
-#			self.logger.info('... training')
-		epoch = 0
-
-		while (epoch < self.n_epochs):
-			epoch = epoch + 1
-			for idx in xrange(n_train):
-#				effective_momentum = self.final_momentum \
-#						if epoch > self.momentum_switchover \
-#						else self.initial_momentum
-				example_cost = train_model(idx, self.learning_rate)
-
-			# iteration number (how many weight updates have we made?)
-			# epoch is 1-based, index is 0 based
-			iter = (epoch - 1) * n_train + idx + 1
-
-			if iter % validation_frequency == 0:
-			# compute loss on training set
-				train_losses = [compute_train_error(i)
-							for i in xrange(n_train)]
-				this_train_loss = np.mean(train_losses)
-
-				if self.interactive:
-					test_losses = [compute_test_error(i)
-							for i in xrange(n_test)]
-					this_test_loss = np.mean(test_losses)
-
-				print('epoch %i, seq %i/%i, train loss %f '
-					'lr: %f' % (epoch, idx + 1, n_train,
-						this_train_loss, self.learning_rate))
-
-#					if self.logger is not None:
-#						self.logger.info('epoch %i, seq %i/%i, tr loss %f '
-#							'te loss %f lr: %f' % (epoch, idx + 1, n_train,
-#							this_train_loss, this_test_loss,
-#							self.learning_rate))
-#				else:
-#					if self.logger is not None:
-#						self.logger.info('epoch %i, seq %i/%i, train loss %f '
-#							'lr: %f' % (epoch, idx + 1, n_train,
-#							this_train_loss, self.learning_rate))
-
-#			self.learning_rate *= self.learning_rate_decay
-'''
+		return params

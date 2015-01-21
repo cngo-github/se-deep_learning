@@ -1,5 +1,6 @@
 import theano
 import logging
+import time
 
 import theano.tensor as t
 import numpy as np
@@ -7,35 +8,59 @@ import numpy as np
 from corpus import Corpus
 from model import Model
 
-logging.basicConfig(level = logging.INFO)
+import matplotlib.pyplot as plt
+plt.ion()
+
+logger = logging.getLogger('test')
+logger.setLevel(logging.INFO)
 
 filepath = 'test'
+vocab = 'vocab_test'
 
 c = Corpus()
-c.buildVocabulary(filepath)
-c.saveVocabulary('vocab')
+c.loadVocabulary(vocab)
+
+n_hid = 50
+n_steps = 10
+n_seq = 5
+n_classes = 3
+n_out = n_classes
 
 fs = open(filepath, 'r')
+tokens = None
+seq, targets, tokens = c.encode(n_seq, n_steps, tokens, fs)
+_, _, n_in = seq.shape
 
-x, target = c.encodeNextLine(fs)
-model = None
+t0 = time.time()
 
-while x and target.any():
-	n_in = len(x[0])
-	n_hid = n_in
-	n_out = n_in
+params = {
+	'n_in': n_in,
+	'n_hid': n_hid,
+	'n_out': n_out,
+	'n_epochs': 5000
+}
 
-	params = {
-		'n_in': n_in,
-		'n_hid': n_hid,
-		'n_out': n_out,
-	}
+model = Model(logger, params)
+model.fit(seq, targets, validation_freq=1000)
 
-	if not model:
-		model = Model(params)
+seqs = xrange(n_seq)
 
-	model.fit(x, target)
+plt.close('all')
 
-	x, target = c.encodeNextLine(fs)
+for seq_num in seqs:
+	fig = plt.figure()
+	ax1 = plt.subplot(211)
+	plt.plot(seq[seq_num])
+	ax1.set_title('input')
+	ax2 = plt.subplot(212)
 
-fs.close()
+	# blue line will represent true classes
+	true_targets = plt.step(xrange(n_steps), targets[seq_num], marker='o')
+
+	# show probabilities (in b/w) output by model
+	guess = model.predict_probability(seq[seq_num])
+	guessed_probs = plt.imshow(guess.T, interpolation='nearest',
+								cmap='gray')
+	ax2.set_title('blue: true class, grayscale: probs assigned by model')
+
+print "Elapsed time: %f" % (time.time() - t0)
