@@ -1,0 +1,1000 @@
+package com . tulusha . timetracker ;
+import android . app . Activity ;
+import android . app . AlertDialog ;
+import android . content . Context ;
+import android . content . Intent ;
+import android . content . pm . PackageInfo ;
+import android . content . pm . PackageManager ;
+import android . os . Bundle ;
+import android . text . SpannableString ;
+import android . text . util . Linkify ;
+import android . view . View ;
+import android . widget . TextView ;
+import com . tulusha . timetracker . widgets . ActionBar ;
+import com . tulusha . timetracker . widgets . ScrollingTextView ;
+public class HomeActivity extends Activity {
+public void onCreate ( Bundle savedInstanceState ) {
+super . onCreate ( savedInstanceState ) ;
+setContentView ( R . layout . activity_home ) ;
+final ActionBar actionBar = ( ActionBar ) findViewById ( R . id . actionbar ) ;
+actionBar . setTitle ( " ) ;
+}
+public void <unk> ( View v )
+{
+startActivity ( new Intent ( this , TrackerActivity . class ) ) ;
+}
+public void <unk> ( View v )
+{
+AlertDialog builder ;
+String aboutTitle = " ;
+final TextView message = new TextView ( this ) ;
+message . setText ( " ) ;
+message . setPadding ( <num> , <num> , <num> , <num> ) ;
+builder = new AlertDialog . Builder ( this ) . setTitle ( aboutTitle ) . setCancelable ( true ) . setIcon ( R . drawable . icon ) . setPositiveButton (
+this . getString ( android . R . string . ok ) , null ) . setView ( message ) . create ( ) ;
+builder . show ( ) ;
+}
+public void <unk> ( View v )
+{
+AlertDialog builder ;
+String aboutTitle = " ;
+final TextView message = new TextView ( this ) ;
+message . setText ( " ) ;
+message . setPadding ( <num> , <num> , <num> , <num> ) ;
+builder = new AlertDialog . Builder ( this ) . setTitle ( aboutTitle ) . setCancelable ( true ) . setIcon ( R . drawable . icon ) . setPositiveButton (
+this . getString ( android . R . string . ok ) , null ) . setView ( message ) . create ( ) ;
+builder . show ( ) ;
+}
+public void <unk> ( View v )
+{
+AlertDialog builder ;
+try {
+builder = AboutDialogBuilder . create ( this ) ;
+builder . show ( ) ;
+} catch ( PackageManager . NameNotFoundException e ) {
+e . printStackTrace ( ) ;
+}
+}
+public static Intent createIntent ( Context context )
+{
+Intent i = new Intent ( context , HomeActivity . class ) ;
+i . addFlags ( Intent . FLAG_ACTIVITY_CLEAR_TOP ) ;
+return i ;
+}
+public static class AboutDialogBuilder {
+public static AlertDialog create ( Context context ) throws PackageManager . NameNotFoundException {
+PackageInfo pInfo = context . getPackageManager ( ) . getPackageInfo ( context . getPackageName ( ) , PackageManager . GET_META_DATA ) ;
+String versionInfo = pInfo . versionName ;
+String aboutTitle = context . getString ( R . string . about , context . getString ( R . string . app_name ) ) ;
+String versionString = context . getString ( R . string . version , versionInfo ) ;
+String aboutText = context . getString ( R . string . about_text ) ;
+final ScrollingTextView message = new ScrollingTextView ( context ) ;
+final SpannableString s = new SpannableString ( aboutText ) ;
+message . setPadding ( <num> , <num> , <num> , <num> ) ;
+message . setText ( versionString + " + s ) ;
+Linkify . addLinks ( message , Linkify . ALL ) ;
+return new AlertDialog . Builder ( context ) . setTitle ( aboutTitle ) . setCancelable ( true ) . setIcon ( R . drawable . icon ) . setPositiveButton (
+context . getString ( android . R . string . ok ) , null ) . setView ( message ) . create ( ) ;
+}
+}
+package com . tulusha . timetracker ;
+import android . app . Activity ;
+import android . app . Notification ;
+import android . app . NotificationManager ;
+import android . app . PendingIntent ;
+import android . content . Intent ;
+import android . content . SharedPreferences ;
+import android . os . Bundle ;
+import android . preference . PreferenceManager ;
+import android . view . Menu ;
+import android . view . MenuItem ;
+import android . view . View ;
+import android . view . View . OnClickListener ;
+import android . view . animation . Animation ;
+import android . view . animation . AnimationUtils ;
+import android . widget . Button ;
+import android . widget . TextView ;
+import com . tulusha . timetracker . widgets . ActionBar ;
+import com . tulusha . timetracker . widgets . ActionBar . Action ;
+import java . util . Timer ;
+import java . util . TimerTask ;
+public class TrackerActivity extends Activity
+{
+final static String WORKING_STATE_KEY = " ;
+final static String RESTING_STATE_KEY = " ;
+final static String RESTING_TIME_KEY = " ;
+final static String WORKING_TIME_KEY = " ;
+static final String LAST_TIME_KEY = " ;
+static final int NOTIFICATION_KEY = <num> ;
+Button workButton ;
+Button restButton ;
+Animation workMagnify ;
+Animation workShrink ;
+Animation restMagnify ;
+Animation restShrink ;
+TextView restTime ;
+TextView workTime ;
+Boolean resting ;
+Boolean working ;
+Timer timer ;
+TimerTask counter ;
+long workingTime ;
+long restingTime ;
+long lastTime ;
+SharedPreferences . Editor statistic_editor ;
+OnClickListener onRestPressed = new OnClickListener ( ) {
+@Override
+public void onClick ( View v ) {
+if ( ! resting )
+{
+restTime . startAnimation ( restMagnify ) ;
+resting = true ;
+}
+else
+{
+restTime . startAnimation ( restShrink ) ;
+resting = false ;
+}
+if ( working )
+{
+workTime . startAnimation ( workShrink ) ;
+working = false ;
+}
+workButton . setSelected ( working ) ;
+restButton . setSelected ( resting ) ;
+saveTimersState ( ) ;
+}
+} ;
+OnClickListener onWorkPressed = new OnClickListener ( ) {
+@Override
+public void onClick ( View v ) {
+if ( ! working )
+{
+workTime . startAnimation ( workMagnify ) ;
+working = true ;
+}
+else
+{
+workTime . startAnimation ( workShrink ) ;
+working = false ;
+}
+if ( resting )
+{
+restTime . startAnimation ( restShrink ) ;
+resting = false ;
+}
+workButton . setSelected ( working ) ;
+restButton . setSelected ( resting ) ;
+saveTimersState ( ) ;
+}
+} ;
+@Override
+public void onCreate ( Bundle savedInstanceState )
+{
+super . onCreate ( savedInstanceState ) ;
+setContentView ( R . layout . activity_tracker ) ;
+statistic_editor = PreferenceManager . getDefaultSharedPreferences ( this ) . edit ( ) ;
+NotificationManager manager = ( NotificationManager ) getSystemService ( NOTIFICATION_SERVICE ) ;
+manager . cancel ( NOTIFICATION_KEY ) ;
+SharedPreferences saved_statistic = PreferenceManager . getDefaultSharedPreferences ( this ) ;
+resting = saved_statistic . getBoolean ( RESTING_STATE_KEY , false ) ;
+restingTime = saved_statistic . getLong ( RESTING_TIME_KEY , <num> ) ;
+working = saved_statistic . getBoolean ( WORKING_STATE_KEY , false ) ;
+workingTime = saved_statistic . getLong ( WORKING_TIME_KEY , <num> ) ;
+lastTime = ( System . currentTimeMillis ( )  saved_statistic . getLong ( LAST_TIME_KEY , System . currentTimeMillis ( ) ) ) / <num> ;
+workButton = ( Button ) findViewById ( R . id . work ) ;
+workButton . setOnClickListener ( onWorkPressed ) ;
+restButton = ( Button ) findViewById ( R . id . rest ) ;
+restButton . setOnClickListener ( onRestPressed ) ;
+restTime = ( TextView ) findViewById ( R . id . rest_time ) ;
+workTime = ( TextView ) findViewById ( R . id . work_time ) ;
+restMagnify = AnimationUtils . loadAnimation ( this , R . anim . magnify_rest ) ;
+restShrink = AnimationUtils . loadAnimation ( this , R . anim . shrink_rest ) ;
+workMagnify = AnimationUtils . loadAnimation ( this , R . anim . magnify_work ) ;
+workShrink = AnimationUtils . loadAnimation ( this , R . anim . shrink_work ) ;
+counter = new TimerTask ( ) {
+@Override
+public void run ( ) {
+if ( working )
+{
+workingTime ++ ;
+updateWorkTimer ( ) ;
+}
+else if ( resting )
+{
+restingTime ++ ;
+updateRestTimer ( ) ;
+}
+}
+} ;
+timer = new Timer ( ) ;
+timer . schedule ( counter , <num> , <num> ) ;
+if ( resting )
+{
+restTime . startAnimation ( restMagnify ) ;
+restingTime += lastTime ;
+}
+else if ( working )
+{
+workTime . startAnimation ( workMagnify ) ;
+workingTime += lastTime ;
+}
+restTime . setText ( getStringTimeFromSeconds ( restingTime ) ) ;
+workTime . setText ( getStringTimeFromSeconds ( workingTime ) ) ;
+final ActionBar actionBar = ( ActionBar ) findViewById ( R . id . actionbar ) ;
+actionBar . setTitle ( " ) ;
+actionBar . addAction ( new Action ( )
+{
+@Override
+public void performAction ( View view ) {
+startActivity ( createShareIntent ( ) ) ;
+}
+@Override
+public int getDrawable ( ) {
+return R . drawable . ic_title_share_default ;
+}
+} ) ;
+actionBar . setHomeAction ( new ActionBar . IntentAction ( this , HomeActivity . createIntent ( this ) , R . drawable . ic_title_home_default ) ) ;
+actionBar . setDisplayHomeAsUpEnabled ( true ) ;
+}
+@Override
+protected void onStop ( ) {
+super . onStop ( ) ;
+saveTimersState ( ) ;
+NotificationManager manager = ( NotificationManager ) getSystemService ( NOTIFICATION_SERVICE ) ;
+Notification notification = null ;
+PendingIntent intent = PendingIntent . getActivity ( this , <num> , new Intent ( this , TrackerActivity . class ) , PendingIntent . FLAG_UPDATE_CURRENT ) ;
+if ( working )
+{
+notification = new Notification ( android . R . drawable . ic_menu_info_details , getResources ( ) . getString ( R . string . notification_work ) , System . currentTimeMillis ( ) ) ;
+notification . setLatestEventInfo ( this , getResources ( ) . getString ( R . string . notification_work ) , getResources ( ) . getString ( R . string . show_app ) , intent ) ;
+}
+else if ( resting )
+{
+notification = new Notification ( android . R . drawable . ic_menu_info_details , getResources ( ) . getString ( R . string . notification_rest ) , System . currentTimeMillis ( ) ) ;
+notification . setLatestEventInfo ( this , getResources ( ) . getString ( R . string . notification_rest ) , getResources ( ) . getString ( R . string . show_app ) , intent ) ;
+}
+if ( notification != null )
+{
+notification . flags = Notification . FLAG_AUTO_CANCEL | Notification . FLAG_ONGOING_EVENT ;
+manager . notify ( NOTIFICATION_KEY , notification ) ;
+}
+}
+@Override
+protected void onResume ( ) {
+super . onResume ( ) ;
+NotificationManager manager = ( NotificationManager ) getSystemService ( NOTIFICATION_SERVICE ) ;
+manager . cancel ( NOTIFICATION_KEY ) ;
+}
+private void saveTimersState ( ) {
+statistic_editor . putLong ( LAST_TIME_KEY , System . currentTimeMillis ( ) ) ;
+statistic_editor . putBoolean ( RESTING_STATE_KEY , resting ) ;
+statistic_editor . putBoolean ( WORKING_STATE_KEY , working ) ;
+statistic_editor . putLong ( RESTING_TIME_KEY , restingTime ) ;
+statistic_editor . putLong ( WORKING_TIME_KEY , workingTime ) ;
+statistic_editor . commit ( ) ;
+}
+@Override
+public boolean onCreateOptionsMenu ( Menu menu ) {
+MenuItem item = menu . add ( R . string . clear_timers ) ;
+item . setIcon ( android . R . drawable . ic_menu_delete ) ;
+return super . onCreateOptionsMenu ( menu ) ;
+}
+@Override
+public boolean onMenuItemSelected ( int featureId , MenuItem item ) {
+lastTime = <num> ;
+if ( working )
+workTime . startAnimation ( workShrink ) ;
+working = false ;
+workingTime = <num> ;
+workTime . setText ( " ) ;
+workButton . setSelected ( resting ) ;
+if ( resting )
+restTime . startAnimation ( restShrink ) ;
+resting = false ;
+restingTime = <num> ;
+restTime . setText ( " ) ;
+restButton . setSelected ( resting ) ;
+return super . onMenuItemSelected ( featureId , item ) ;
+}
+private void updateRestTimer ( )
+{
+final String timeString = getStringTimeFromSeconds ( restingTime ) ;
+runOnUiThread ( new Runnable ( ) {
+@Override
+public void run ( ) {
+restTime . setText ( timeString ) ;
+}
+} ) ;
+}
+private void updateWorkTimer ( )
+{
+final String timeString = getStringTimeFromSeconds ( workingTime ) ;
+runOnUiThread ( new Runnable ( ) {
+@Override
+public void run ( ) {
+workTime . setText ( timeString ) ;
+}
+} ) ;
+}
+private String getStringTimeFromSeconds ( long secondsTime )
+{
+String result = " ;
+int hours = ( int ) ( secondsTime / <num> ) ;
+if ( hours < <num> )
+{
+result += " + String . valueOf ( hours ) + " ;
+}
+else
+{
+result += String . valueOf ( hours ) + " ;
+}
+short minutes = ( short ) ( ( secondsTime  ( hours * <num> ) ) / <num> ) ;
+if ( minutes < <num> )
+{
+result += " + String . valueOf ( minutes ) + " ;
+}
+else
+{
+result += String . valueOf ( minutes ) + " ;
+}
+short seconds = ( short ) ( secondsTime  ( hours * <num> )  ( minutes * <num> ) ) ;
+if ( seconds < <num> )
+{
+result += " + String . valueOf ( seconds ) ;
+}
+else
+{
+result += String . valueOf ( seconds ) ;
+}
+return result ;
+}
+@Override
+protected void onSaveInstanceState ( Bundle outState ) {
+super . onSaveInstanceState ( outState ) ;
+saveTimersState ( ) ;
+}
+@Override
+protected void onRestoreInstanceState ( Bundle savedInstanceState ) {
+super . onRestoreInstanceState ( savedInstanceState ) ;
+SharedPreferences saved_statistic = PreferenceManager . getDefaultSharedPreferences ( this ) ;
+resting = saved_statistic . getBoolean ( RESTING_STATE_KEY , false ) ;
+working = saved_statistic . getBoolean ( WORKING_STATE_KEY , false ) ;
+restingTime = saved_statistic . getLong ( RESTING_TIME_KEY , <num> ) ;
+workingTime = saved_statistic . getLong ( WORKING_TIME_KEY , <num> ) ;
+if ( resting )
+{
+long duration = restMagnify . getDuration ( ) ;
+restMagnify . setDuration ( <num> ) ;
+restTime . startAnimation ( restMagnify ) ;
+restMagnify . setDuration ( duration ) ;
+}
+else if ( working )
+{
+long duration = workMagnify . getDuration ( ) ;
+workMagnify . setDuration ( <num> ) ;
+workTime . startAnimation ( workMagnify ) ;
+workMagnify . setDuration ( duration ) ;
+}
+workButton . setSelected ( working ) ;
+restButton . setSelected ( resting ) ;
+}
+private Intent createShareIntent ( ) {
+final Intent intent = new Intent ( Intent . ACTION_SEND ) ;
+intent . setType ( " ) ;
+if ( working )
+{
+intent . putExtra ( Intent . EXTRA_TEXT , " ) ;
+}
+else if ( resting )
+{
+intent . putExtra ( Intent . EXTRA_TEXT , " ) ;
+}
+else
+{
+intent . putExtra ( Intent . EXTRA_TEXT , " ) ;
+}
+return Intent . createChooser ( intent , " ) ;
+}
+}
+package com . tulusha . timetracker . widgets ;
+import java . util . LinkedList ;
+import com . tulusha . timetracker . R ;
+import android . content . ActivityNotFoundException ;
+import android . content . Context ;
+import android . content . Intent ;
+import android . content . res . TypedArray ;
+import android . util . AttributeSet ;
+import android . view . LayoutInflater ;
+import android . view . View ;
+import android . view . View . OnClickListener ;
+import android . widget . ImageButton ;
+import android . widget . ImageView ;
+import android . widget . LinearLayout ;
+import android . widget . ProgressBar ;
+import android . widget . RelativeLayout ;
+import android . widget . TextView ;
+import android . widget . Toast ;
+public class ActionBar extends RelativeLayout implements OnClickListener {
+private LayoutInflater mInflater ;
+private RelativeLayout mBarView ;
+private ImageView mLogoView ;
+private View mBackIndicator ;
+private TextView mTitleView ;
+private LinearLayout mActionsView ;
+private ImageButton mHomeBtn ;
+private RelativeLayout mHomeLayout ;
+private ProgressBar mProgress ;
+public ActionBar ( Context context , AttributeSet attrs ) {
+super ( context , attrs ) ;
+mInflater = ( LayoutInflater ) context . getSystemService ( Context . LAYOUT_INFLATER_SERVICE ) ;
+mBarView = ( RelativeLayout ) mInflater . inflate ( R . layout . actionbar , null ) ;
+addView ( mBarView ) ;
+mLogoView = ( ImageView ) mBarView . findViewById ( R . id . actionbar_home_logo ) ;
+mHomeLayout = ( RelativeLayout ) mBarView . findViewById ( R . id . actionbar_home_bg ) ;
+mHomeBtn = ( ImageButton ) mBarView . findViewById ( R . id . actionbar_home_btn ) ;
+mBackIndicator = mBarView . findViewById ( R . id . actionbar_home_is_back ) ;
+mTitleView = ( TextView ) mBarView . findViewById ( R . id . actionbar_title ) ;
+mActionsView = ( LinearLayout ) mBarView . findViewById ( R . id . actionbar_actions ) ;
+mProgress = ( ProgressBar ) mBarView . findViewById ( R . id . actionbar_progress ) ;
+TypedArray a = context . obtainStyledAttributes ( attrs ,
+R . styleable . ActionBar ) ;
+CharSequence title = a . getString ( R . styleable . ActionBar_title ) ;
+if ( title != null ) {
+setTitle ( title ) ;
+}
+a . recycle ( ) ;
+}
+public void setHomeAction ( Action action ) {
+mHomeBtn . setOnClickListener ( this ) ;
+mHomeBtn . setTag ( action ) ;
+mHomeBtn . setImageResource ( action . getDrawable ( ) ) ;
+mHomeLayout . setVisibility ( View . VISIBLE ) ;
+}
+public void <unk> ( ) {
+mHomeLayout . setVisibility ( View . GONE ) ;
+}
+public void setHomeLogo ( int resId ) {
+mLogoView . setImageResource ( resId ) ;
+mLogoView . setVisibility ( View . VISIBLE ) ;
+mHomeLayout . setVisibility ( View . GONE ) ;
+}
+public void setDisplayHomeAsUpEnabled ( boolean show ) {
+mBackIndicator . setVisibility ( show ? View . VISIBLE : View . GONE ) ;
+}
+public void setTitle ( CharSequence title ) {
+mTitleView . setText ( title ) ;
+}
+public void setTitle ( int resid ) {
+mTitleView . setText ( resid ) ;
+}
+public void setProgressBarVisibility ( int visibility ) {
+mProgress . setVisibility ( visibility ) ;
+}
+public int <unk> ( ) {
+return mProgress . getVisibility ( ) ;
+}
+public void <unk> ( OnClickListener listener ) {
+mTitleView . setOnClickListener ( listener ) ;
+}
+@Override
+public void onClick ( View view ) {
+final Object tag = view . getTag ( ) ;
+if ( tag instanceof Action ) {
+final Action action = ( Action ) tag ;
+action . performAction ( view ) ;
+}
+}
+public void addActions ( ActionList actionList ) {
+int actions = actionList . size ( ) ;
+for ( int i = <num> ; i < actions ; i ++ ) {
+addAction ( actionList . get ( i ) ) ;
+}
+}
+public void addAction ( Action action ) {
+final int index = mActionsView . getChildCount ( ) ;
+addAction ( action , index ) ;
+}
+public void addAction ( Action action , int index ) {
+mActionsView . addView ( inflateAction ( action ) , index ) ;
+}
+public void <unk> ( ) {
+mActionsView . removeAllViews ( ) ;
+}
+public void <unk> ( int index ) {
+mActionsView . removeViewAt ( index ) ;
+}
+public void <unk> ( Action action ) {
+int childCount = mActionsView . getChildCount ( ) ;
+for ( int i = <num> ; i < childCount ; i ++ ) {
+View view = mActionsView . getChildAt ( i ) ;
+if ( view != null ) {
+final Object tag = view . getTag ( ) ;
+if ( tag instanceof Action && tag . equals ( action ) ) {
+mActionsView . removeView ( view ) ;
+}
+}
+}
+}
+public int <unk> ( ) {
+return mActionsView . getChildCount ( ) ;
+}
+private View inflateAction ( Action action ) {
+View view = mInflater . inflate ( R . layout . actionbar_item , mActionsView , false ) ;
+ImageButton labelView =
+( ImageButton ) view . findViewById ( R . id . actionbar_item ) ;
+labelView . setImageResource ( action . getDrawable ( ) ) ;
+view . setTag ( action ) ;
+view . setOnClickListener ( this ) ;
+return view ;
+}
+public static class ActionList extends LinkedList < Action > {
+}
+public interface Action {
+public int getDrawable ( ) ;
+public void performAction ( View view ) ;
+}
+public static abstract class AbstractAction implements Action {
+final private int mDrawable ;
+public AbstractAction ( int drawable ) {
+mDrawable = drawable ;
+}
+@Override
+public int getDrawable ( ) {
+return mDrawable ;
+}
+}
+public static class IntentAction extends AbstractAction {
+private Context mContext ;
+private Intent mIntent ;
+public IntentAction ( Context context , Intent intent , int drawable ) {
+super ( drawable ) ;
+mContext = context ;
+mIntent = intent ;
+}
+@Override
+public void performAction ( View view ) {
+try {
+mContext . startActivity ( mIntent ) ;
+} catch ( ActivityNotFoundException e ) {
+Toast . makeText ( mContext ,
+mContext . getText ( R . string . actionbar_activity_not_found ) ,
+Toast . LENGTH_SHORT ) . show ( ) ;
+}
+}
+}
+}
+package com . tulusha . timetracker ;
+public final class R {
+public static final class anim {
+public static final int magnify_rest = <num> ;
+public static final int magnify_work = <num> ;
+public static final int shrink_rest = <num> ;
+public static final int shrink_work = <num> ;
+}
+public static final class attr {
+public static final int title = <num> ;
+}
+public static final class color {
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int actionbar_title = <num> ;
+public static final int <unk> = <num> ;
+}
+public static final class dimen {
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+}
+public static final class drawable {
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int background = <num> ;
+public static final int bg = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int home_btn_about = <num> ;
+public static final int home_btn_cal = <num> ;
+public static final int home_btn_charts = <num> ;
+public static final int home_btn_tracker = <num> ;
+public static final int <unk> = <num> ;
+public static final int ic_title_home_default = <num> ;
+public static final int ic_title_share_default = <num> ;
+public static final int icon = <num> ;
+public static final int shadow = <num> ;
+}
+public static final class id {
+public static final int actionbar = <num> ;
+public static final int actionbar_actions = <num> ;
+public static final int <unk> = <num> ;
+public static final int actionbar_home_bg = <num> ;
+public static final int actionbar_home_btn = <num> ;
+public static final int actionbar_home_is_back = <num> ;
+public static final int actionbar_home_logo = <num> ;
+public static final int actionbar_item = <num> ;
+public static final int actionbar_progress = <num> ;
+public static final int actionbar_title = <num> ;
+public static final int home_btn_about = <num> ;
+public static final int home_btn_cal = <num> ;
+public static final int home_btn_charts = <num> ;
+public static final int home_btn_tracker = <num> ;
+public static final int <unk> = <num> ;
+public static final int rest = <num> ;
+public static final int rest_time = <num> ;
+public static final int screen = <num> ;
+public static final int work = <num> ;
+public static final int work_time = <num> ;
+}
+public static final class layout {
+public static final int actionbar = <num> ;
+public static final int actionbar_item = <num> ;
+public static final int activity_home = <num> ;
+public static final int activity_tracker = <num> ;
+}
+public static final class string {
+public static final int about = <num> ;
+public static final int about_text = <num> ;
+public static final int actionbar_activity_not_found = <num> ;
+public static final int app_name = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int clear_timers = <num> ;
+public static final int notification_rest = <num> ;
+public static final int notification_work = <num> ;
+public static final int rest = <num> ;
+public static final int show_app = <num> ;
+public static final int version = <num> ;
+public static final int work = <num> ;
+}
+public static final class style {
+public static final int ActionBar = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+public static final int <unk> = <num> ;
+}
+public static final class styleable {
+public static final int [ ] ActionBar = {
+<num>
+} ;
+public static final int ActionBar_title = <num> ;
+} ;
+}
+package com . tulusha . timetracker . widgets ;
+import android . content . Context ;
+import android . text . method . ScrollingMovementMethod ;
+import android . util . AttributeSet ;
+import android . widget . TextView ;
+public class ScrollingTextView extends TextView {
+public ScrollingTextView ( Context context , AttributeSet attrs ,
+int defStyle ) {
+super ( context , attrs , defStyle ) ;
+}
+public ScrollingTextView ( Context context , AttributeSet attrs ) {
+super ( context , attrs ) ;
+}
+public ScrollingTextView ( Context context ) {
+super ( context ) ;
+this . setMovementMethod ( new ScrollingMovementMethod ( ) ) ;
+this . setMaxLines ( <num> ) ;
+}
+}
+package com . olivere . supahsync . diagnostics ;
+import java . io . File ;
+import java . io . IOException ;
+import java . io . PrintStream ;
+import java . io . UnsupportedEncodingException ;
+import org . jaudiotagger . tag . TagField ;
+public class Driver {
+public static void main ( String [ ] args ) throws IOException {
+File testDataDirectory = new File ( " ) ;
+File outputFile = new File ( " ) ;
+outputFile . createNewFile ( ) ;
+System . setOut ( new PrintStream ( outputFile ) ) ;
+for ( File song : testDataDirectory . listFiles ( ) ) {
+printAnalysis ( new TagAnalyzer ( song ) ) ;
+}
+}
+public static void printAnalysis ( TagAnalyzer song ) {
+System . out . println ( " + song . getFormat ( ) ) ;
+System . out . println ( " + song . getNumFields ( ) ) ;
+for ( TagField field : song . getFields ( ) ) {
+try {
+System . out . println ( " + field . getRawContent ( ) . length + " + field . getId ( ) + " + field . toString ( ) ) ;
+} catch ( UnsupportedEncodingException e ) {
+e . printStackTrace ( ) ;
+}
+}
+System . out . println ( " + song . getOwnerFormal ( ) ) ;
+System . out . println ( " + song . getArtworkSize ( ) ) ;
+System . out . println ( " + song . getApproximateMetadataSize ( ) ) ;
+System . out . println ( ) ;
+System . out . println ( " ) ;
+System . out . println ( ) ;
+}
+}
+package com . olivere . supahsync . diagnostics ;
+import java . io . File ;
+import java . io . IOException ;
+import java . io . UnsupportedEncodingException ;
+import java . nio . ByteBuffer ;
+import java . util . ArrayList ;
+import java . util . Iterator ;
+import java . util . List ;
+import org . jaudiotagger . audio . AudioFile ;
+import org . jaudiotagger . audio . AudioFileIO ;
+import org . jaudiotagger . audio . AudioHeader ;
+import org . jaudiotagger . audio . exceptions . CannotReadException ;
+import org . jaudiotagger . audio . exceptions . InvalidAudioFrameException ;
+import org . jaudiotagger . audio . exceptions . ReadOnlyFileException ;
+import org . jaudiotagger . tag . InvalidTagException ;
+import org . jaudiotagger . tag . Tag ;
+import org . jaudiotagger . tag . TagException ;
+import org . jaudiotagger . tag . TagField ;
+import org . jaudiotagger . tag . <unk> . <unk> . FrameBodyPRIV ;
+import org . jaudiotagger . tag . images . Artwork ;
+public class TagAnalyzer {
+private AudioFile audioFile ;
+private String audioFormat ;
+private Integer artworkSize ;
+private List < Artwork > artwork ;
+private List < TagField > tags ;
+private boolean metadataCorrupted = false ;
+private boolean fileDataCorrupted = false ;
+public TagAnalyzer ( File f ) throws IOException {
+try {
+this . audioFile = AudioFileIO . read ( f ) ;
+analyzeSong ( ) ;
+} catch ( CannotReadException e ) {
+throw new IOException ( e ) ;
+} catch ( ReadOnlyFileException e ) {
+throw new SecurityException ( e ) ;
+} catch ( InvalidAudioFrameException e ) {
+this . fileDataCorrupted = true ;
+} catch ( TagException e ) {
+this . metadataCorrupted = true ;
+}
+}
+private void analyzeSong ( ) {
+AudioHeader header = this . audioFile . getAudioHeader ( ) ;
+Tag tagFields = this . audioFile . getTag ( ) ;
+this . audioFormat = header . getFormat ( ) ;
+this . artwork = tagFields . getArtworkList ( ) ;
+Iterator < TagField > tagsIterator = tagFields . getFields ( ) ;
+this . tags = new ArrayList < TagField > ( ) ;
+while ( tagsIterator . hasNext ( ) ) {
+this . tags . add ( tagsIterator . next ( ) ) ;
+}
+}
+private int calculateArtworkSize ( ) {
+Tag tags = audioFile . getTag ( ) ;
+int sizeSum = <num> ;
+for ( Artwork art : tags . getArtworkList ( ) ) {
+sizeSum += art . <unk> ( ) . length ;
+}
+this . artworkSize = sizeSum ;
+return this . artworkSize ;
+}
+public int getArtworkSize ( ) {
+return this . artworkSize == null ? calculateArtworkSize ( ) : this . artworkSize ;
+}
+public int getNumFields ( ) {
+return this . audioFile . getTag ( ) . <unk> ( ) ;
+}
+public List < TagField > getFields ( ) {
+ArrayList < TagField > tags = new ArrayList < TagField > ( ) ;
+Iterator < TagField > tagIterator = this . audioFile . getTag ( ) . getFields ( ) ;
+while ( tagIterator . hasNext ( ) ) {
+tags . add ( tagIterator . next ( ) ) ;
+}
+return tags ;
+}
+public int getApproximateMetadataSize ( ) {
+int sum = <num> ;
+Iterator < TagField > tags = this . audioFile . getTag ( ) . getFields ( ) ;
+while ( tags . hasNext ( ) ) {
+try {
+sum += tags . next ( ) . getRawContent ( ) . length ;
+} catch ( UnsupportedEncodingException e ) {
+e . printStackTrace ( ) ;
+}
+}
+return sum ;
+}
+public String getOwner ( ) {
+TagField privateTag = this . audioFile . getTag ( ) . getFirstField ( " ) ;
+if ( privateTag == null ) {
+return null ;
+}
+try {
+byte [ ] rawData = privateTag . getRawContent ( ) ;
+int indexOfNull = <num> + <num> + <num> ;
+StringBuffer owner = new StringBuffer ( ) ;
+while ( rawData [ indexOfNull ] != \0' ) {
+owner . append ( ( char ) rawData [ indexOfNull ++ ] ) ;
+}
+return owner . toString ( ) ;
+} catch ( UnsupportedEncodingException e ) {
+e . printStackTrace ( ) ;
+return null ;
+}
+}
+public String getOwnerFormal ( ) {
+try {
+byte [ ] rawContent = this . audioFile . getTag ( ) . getFirstField ( " ) . getRawContent ( ) ;
+ByteBuffer byteBuffer = ByteBuffer . wrap ( rawContent , <num> , rawContent . length  <num> ) ;
+FrameBodyPRIV privateFrame = new FrameBodyPRIV ( byteBuffer , byteBuffer . remaining ( ) ) ;
+return privateFrame . getIdentifier ( ) ;
+} catch ( UnsupportedEncodingException e ) {
+e . printStackTrace ( ) ;
+return null ;
+} catch ( InvalidTagException e ) {
+e . printStackTrace ( ) ;
+return null ;
+} catch ( NullPointerException e ) {
+return null ;
+}
+}
+public String getFormat ( ) {
+return this . audioFile . getAudioHeader ( ) . getFormat ( ) ;
+}
+public boolean <unk> ( ) {
+return this . fileDataCorrupted || this . metadataCorrupted ;
+}
+public boolean <unk> ( ) {
+return this . fileDataCorrupted ;
+}
+public boolean <unk> ( ) {
+return this . metadataCorrupted ;
+}
+package com . modcrafting . creepyfriend ;
+import java . util . ArrayList ;
+import java . util . List ;
+import org . bukkit . Effect ;
+import org . bukkit . Location ;
+import org . bukkit . configuration . file . YamlConfiguration ;
+import org . bukkit . entity . Creature ;
+import org . bukkit . entity . Creeper ;
+import org . bukkit . entity . Entity ;
+import org . bukkit . entity . LivingEntity ;
+import org . bukkit . entity . Player ;
+import org . bukkit . event . EventHandler ;
+import org . bukkit . event . Listener ;
+import org . bukkit . event . entity . EntityDamageByEntityEvent ;
+import org . bukkit . event . entity . EntityDamageEvent ;
+import org . bukkit . event . entity . EntityDamageEvent . DamageCause ;
+import org . bukkit . event . entity . EntityTargetEvent ;
+import org . bukkit . event . player . PlayerInteractEntityEvent ;
+import org . bukkit . inventory . ItemStack ;
+public class Friend implements Listener {
+CreepyFriend plugin ;
+public Friend ( CreepyFriend instance ) {
+this . plugin = instance ;
+}
+@EventHandler
+public void onEntityDamage ( EntityDamageEvent event ) {
+if ( ( event . getCause ( ) == DamageCause . FIRE_TICK || event . getCause ( ) == DamageCause . FIRE ) && plugin . friendlies . contains ( event . getEntity ( ) . getEntityId ( ) ) ) {
+event . setCancelled ( true ) ;
+event . getEntity ( ) . setFireTicks ( <num> ) ;
+} else if ( event instanceof EntityDamageByEntityEvent ) {
+EntityDamageByEntityEvent e = ( EntityDamageByEntityEvent ) event ;
+if ( e . getDamager ( ) instanceof LivingEntity && e . getEntity ( ) instanceof Player && plugin . friends . get ( ( ( Player ) e . getEntity ( ) ) . getName ( ) ) != null ) {
+ArrayList < Integer > array = plugin . friends . get ( ( ( Player ) e . getEntity ( ) ) . getName ( ) ) ;
+List < LivingEntity > livingEntities = e . getEntity ( ) . getWorld ( ) . <unk> ( ) ;
+for ( LivingEntity i : livingEntities ) {
+if ( i instanceof Creature && array . contains ( i . getEntityId ( ) ) ) {
+( ( Creature ) i ) . setTarget ( ( LivingEntity ) e . getDamager ( ) ) ;
+}
+}
+}
+}
+}
+@EventHandler
+public void <unk> ( EntityTargetEvent event ) {
+if ( ( event . getTarget ( ) instanceof Player ) ) {
+Player p = ( Player ) event . getTarget ( ) ;
+if ( plugin . friendlies . contains ( event . getEntity ( ) . getEntityId ( ) ) ) {
+String name = plugin . targets . get ( event . getEntity ( ) . getEntityId ( ) ) ;
+if ( name == null || name . isEmpty ( ) ) {
+event . setCancelled ( true ) ;
+return ;
+}
+if ( ! ( name . equals ( p . getName ( ) ) ) ) {
+event . setCancelled ( true ) ;
+return ;
+}
+}
+}
+}
+@EventHandler
+public void <unk> ( PlayerInteractEntityEvent event ) {
+YamlConfiguration config = ( YamlConfiguration ) plugin . getConfig ( ) ;
+Entity creeper = event . getRightClicked ( ) ;
+if ( creeper instanceof Creeper ) {
+ItemStack hand = event . getPlayer ( ) . getItemInHand ( ) ;
+Location hearts = creeper . getLocation ( ) ;
+if ( hand . getTypeId ( ) == config . getInt ( " , <num> ) ) {
+if ( hand . getAmount ( ) >= <num> ) {
+event . getPlayer ( ) . playEffect ( hearts , Effect . MOBSPAWNER_FLAMES , <num> ) ;
+plugin . addFriends ( event . getPlayer ( ) , ( LivingEntity ) creeper ) ;
+if ( hand . getAmount ( ) == <num> ) {
+event . getPlayer ( ) . setItemInHand ( null ) ;
+} else {
+hand . setAmount ( hand . getAmount ( )  <num> ) ;
+}
+return ;
+}
+}
+}
+}
+}
+package com . modcrafting . creepyfriend ;
+import java . io . File ;
+import java . io . FileOutputStream ;
+import java . io . IOException ;
+import java . io . InputStream ;
+import java . util . ArrayList ;
+import java . util . concurrent . ConcurrentHashMap ;
+import java . util . logging . Level ;
+import java . util . logging . Logger ;
+import org . bukkit . entity . LivingEntity ;
+import org . bukkit . entity . Player ;
+import org . bukkit . event . Listener ;
+import org . bukkit . plugin . PluginDescriptionFile ;
+import org . bukkit . plugin . PluginManager ;
+import org . bukkit . plugin . java . JavaPlugin ;
+public class CreepyFriend extends JavaPlugin {
+public final static Logger log = Logger . getLogger ( " ) ;
+public final Listener friend = new Friend ( this ) ;
+public ConcurrentHashMap < String , ArrayList < Integer >> friends = new ConcurrentHashMap < String , ArrayList < Integer >> ( ) ;
+public ArrayList < Integer > friendlies = new ArrayList < Integer > ( ) ;
+public ConcurrentHashMap < Integer , String > targets = new ConcurrentHashMap < Integer , String > ( ) ;
+protected void createDefaultConfiguration ( String name ) {
+File actual = new File ( getDataFolder ( ) , name ) ;
+if ( ! actual . exists ( ) ) {
+InputStream input =
+this . getClass ( ) . getResourceAsStream ( " + name ) ;
+if ( input != null ) {
+FileOutputStream output = null ;
+try {
+output = new FileOutputStream ( actual ) ;
+byte [ ] buf = new byte [ <num> ] ;
+int length = <num> ;
+while ( ( length = input . read ( buf ) ) > <num> ) {
+output . write ( buf , <num> , length ) ;
+}
+log . log ( Level . INFO , getDescription ( ) . getName ( )
++ " + name ) ;
+} catch ( IOException e ) {
+e . printStackTrace ( ) ;
+} finally {
+try {
+if ( input != null )
+input . close ( ) ;
+} catch ( IOException e ) { }
+try {
+if ( output != null )
+output . close ( ) ;
+} catch ( IOException e ) { }
+}
+}
+}
+}
+public void onDisable ( ) {
+PluginDescriptionFile pdfFile = this . getDescription ( ) ;
+log . log ( Level . INFO , " + pdfFile . getName ( ) + " + pdfFile . getVersion ( ) + " ) ;
+}

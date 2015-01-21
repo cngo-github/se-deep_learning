@@ -39,7 +39,7 @@ params = {
 		'n_in': n_in,
 		'n_hid': n_hid,
 		'n_out': n_out,
-		'n_epochs': 1000
+		'n_epochs': 250
 	}
 
 model = Model(logger, params)
