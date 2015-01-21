@@ -7,14 +7,15 @@ import logging
 import numpy as np
 
 class Corpus:
-	def __init__(self):
+	def __init__(self, logger):
 		self.vocabulary = np.asarray([])
+		self.logger = logger
 
 	'''
 		Reads the file passed in and generates the vocabulary and list of tokens from it.
 	'''
 	def buildVocabulary(self, filepath):
-		logging.info("Building vocabulary from file: " + filepath)
+		self.logger.info("Building vocabulary from file: " + filepath)
 
 		fs = open(filepath, 'r')
 
@@ -24,10 +25,10 @@ class Corpus:
 			self.vocabulary = np.unique(self.vocabulary)
 
 		fs.close()
-		logging.info("Vocabulary created.")
+		self.logger.info("Vocabulary created.")
 
 	def writeVocabulary(self, infile, outfile):
-		logging.info("Reading from {} and writing to {}.".format(infile, outfile))
+		self.logger.info("Reading from {} and writing to {}.".format(infile, outfile))
 		fs = open(infile, 'r')
 		os = open(outfile, 'w')
 
@@ -41,7 +42,7 @@ class Corpus:
 
 			self.vocabulary = np.append(self.vocabulary, line)
 			self.vocabulary = np.unique(self.vocabulary)
-		logging.info("Vocabulary from {} and written to {}.".format(infile, outfile))
+		self.logger.info("Vocabulary from {} and written to {}.".format(infile, outfile))
 
 	def saveVocabulary(self, filepath):
 		fs = open(filepath, 'w')
@@ -51,12 +52,12 @@ class Corpus:
 
 		fs.close()
 
-		logging.info('Saved vocabulary to file ' + filepath)
+		self.logger.info('Saved vocabulary to file ' + filepath)
 
 	def loadVocabulary(self, filepath):
 		fs = open(filepath, 'r')
 
-		logging.info("Loading vocabulary from file {}.".format(filepath))
+		self.logger.info("Loading vocabulary from file {}.".format(filepath))
 
 		for line in fs:
 			line = line.strip()
@@ -64,97 +65,10 @@ class Corpus:
 			self.vocabulary = np.append(self.vocabulary, line)
 			self.vocabulary = np.unique(self.vocabulary)
 
-		logging.info("Vocabulary loaded from file {}.".format(filepath))
-
-	def encodeNextLine(self, filestream):
-		line = filestream.readline()
-
-		if line == '':
-			logging.info('The end of the file has been reached.')
-			return (None, None)
-
-		line = line.strip()
-
-		while not line:
-			line = filestream.readline()
-
-			if line == '':
-				logging.info('The end of the file has been reached.')
-				return (None, None)
-
-			line = line.strip()
-
-		if line:
-			return self.encodeLine(line)
-
-	def encodeLine(self, line):
-		retList = []
-
-		logging.debug('One-hot encoding line: ', line)
-
-		line = line.strip().split()
-		target = None
-
-		for token in line:
-			target = self.encode(token)
-			retList.append(target)
-
-		return (retList, target)
-
-	def encodeLineN(self, line):
-		retList = []
-
-		line = line.strip().split()
-		target = []
-
-		for token in line:
-			a = self.encode(token)
-			retList.append(a)
-
-			if len(retList) > 1:
-				target.append(a)
-
-		return (retList, target)
-
-	def readNextNotEmptyLine(self, filestream):
-		line = fs.readline()
-
-		if line == '':
-			logging.info('The end of the file has been reached.')
-			return None
-
-		line = line.strip()
-
-		while not line:
-			line = filestream.readline()
-
-			if line == '':
-				logging.info('The end of the file has been reached.')
-				return None
-
-			line = line.strip()
-
-		return line
-
-	def encodeAllTokens(self, inFile):
-		inFile = open(inFile, 'r')
-		retList = []
-
-		print('Encoding all the tokens in %s.' % inFile)
-
-		for line in inFile:
-			lineSplit = line.split()
-
-			for token in lineSplit:
-				retList.append(self.encode(token))
-
-		inFile.close()
-		print("All the tokens have been encoded.")
-
-		return retList
+		self.logger.info("Vocabulary loaded from file {}.".format(filepath))
 
 	def encode(self, sequences, steps, tokens, filestream):
-		if not tokens:
+		if tokens is None:
 			tokens = np.asarray([])
 
 		min_token_count = steps + sequences + 1
@@ -163,6 +77,10 @@ class Corpus:
 			# Need to retrieve more tokens to complete the
 			# input matrix.
 			line = filestream.readline().strip().split()
+
+			if len(line) < 1:
+				return (None, None, tokens)
+
 			tokens = np.append(tokens, line)
 
 		targets = None
@@ -211,7 +129,7 @@ class Corpus:
 		i, = (self.vocabulary == token).nonzero()
 
 		if not i:
-			logging.error('Token not in vocabulary list: %s' % token)
+			self.logger.error('Token not in vocabulary list: %s' % token)
 			return m
 
 		m[i[0]] = 1

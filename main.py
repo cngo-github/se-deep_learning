@@ -14,8 +14,8 @@ plt.ion()
 logger = logging.getLogger('test')
 logger.setLevel(logging.INFO)
 
-filepath = 'test'
-vocab = 'vocab_test'
+filepath = 'training_test'
+vocab = 'vocab_train'
 
 c = Corpus()
 c.loadVocabulary(vocab)
@@ -28,20 +28,25 @@ n_out = n_classes
 
 fs = open(filepath, 'r')
 tokens = None
+
 seq, targets, tokens = c.encode(n_seq, n_steps, tokens, fs)
-_, _, n_in = seq.shape
+a, b, n_in = seq.shape
 
 t0 = time.time()
 
 params = {
-	'n_in': n_in,
-	'n_hid': n_hid,
-	'n_out': n_out,
-	'n_epochs': 5000
-}
+		'n_in': n_in,
+		'n_hid': n_hid,
+		'n_out': n_out,
+		'n_epochs': 1000
+	}
 
 model = Model(logger, params)
-model.fit(seq, targets, validation_freq=1000)
+
+while seq is not None and targets is not None:
+	model.fit(seq, targets, validation_freq=1000)
+
+	seq, targets, tokens = c.encode(n_seq, n_steps, tokens, fs)
 
 seqs = xrange(n_seq)
 
