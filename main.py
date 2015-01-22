@@ -8,15 +8,15 @@ import numpy as np
 from corpus import Corpus
 from model import Model
 
-import matplotlib.pyplot as plt
-plt.ion()
+logfile = 'log_' + str(time.time())
 
-logging.basicConfig(filename = 'log', level = logging.INFO)
+logging.basicConfig(filename = logfile, level = logging.INFO)
+logging.basicConfig(level = logging.INFO)
 logger = logging.getLogger('test')
 #logger.setLevel(logging.INFO)
 
-filepath = 'training_test'
-vocab = 'vocab_train'
+filepath = 'train1K'
+vocab = 'vocab_train1K'
 
 c = Corpus(logger)
 c.loadVocabulary(vocab)
@@ -29,6 +29,8 @@ n_out = n_classes
 
 fs = open(filepath, 'r')
 tokens = None
+
+softmax_time = 0
 
 seq, targets, tokens = c.encode(n_seq, n_steps, tokens, fs)
 a, b, n_in = seq.shape
@@ -47,26 +49,15 @@ model = Model(logger, params)
 while seq is not None and targets is not None:
 	model.fit(seq, targets, validation_freq=1000)
 
+	seqs = xrange(n_seq)
+	for seq_num in seqs:
+		tsm = time.time()
+		guess = model.predict_probability(seq[seq_num])
+
+		tsm = time.time() - tsm
+		softmax_time += tsm
+		logger.info("Softmax elapsed time: %f" % (tsm))
+
 	seq, targets, tokens = c.encode(n_seq, n_steps, tokens, fs)
 
-seqs = xrange(n_seq)
-
-plt.close('all')
-
-for seq_num in seqs:
-	fig = plt.figure()
-	ax1 = plt.subplot(211)
-	plt.plot(seq[seq_num])
-	ax1.set_title('input')
-	ax2 = plt.subplot(212)
-
-	# blue line will represent true classes
-	true_targets = plt.step(xrange(n_steps), targets[seq_num], marker='o')
-
-	# show probabilities (in b/w) output by model
-	guess = model.predict_probability(seq[seq_num])
-	guessed_probs = plt.imshow(guess.T, interpolation='nearest',
-								cmap='gray')
-	ax2.set_title('blue: true class, grayscale: probs assigned by model')
-
-print "Elapsed time: %f" % (time.time() - t0)
+logger.info("Total elapsed time: {} and softmax time: {} ".format(time.time() - t0, softmax_time))
