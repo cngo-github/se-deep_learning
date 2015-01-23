@@ -1,49 +1,64 @@
-import corpus
-import rnn
-import theano.tensor as T
+import theano
+import logging
+import time
 
-c = corpus.Corpus('test_corpus', 'test_encoded')
-c.getEncodedTokens()
-print(c.encodedTokens)
+import theano.tensor as t
+import numpy as np
 
-self.rnn = RNN({ 'n_hidden': 5,
-		'n_input': 5,
-		'n_output': 5,
-		'n_class': 5,
-		'activation': T.nnet.sigmoid,
-		'input': T.matrix(),
-		'h0': T.vector()}
+from corpus import Corpus
+from model import Model
 
-shared_x = theano.shared(np.asarray(data_x))
-shared_y = theano.shared(np.asarray(data_y))
+logfile = 'log_' + str(time.time())
 
-index = T.lscalar('index')
-l_r = T.scalar('l_r')
-learning_rate = 0.01
-learning_rate_decay = 1 
+logging.basicConfig(filename = logfile, level = logging.INFO)
+logger = logging.getLogger('test')
 
-# compute gradients
-gparams = []
+filepath = 'train1K'
+vocab = 'vocab_train1K'
 
-for param in self.rnn.params:
-	gparams.append(T.grad(self.rnn.loss(y), param))
+c = Corpus(logger)
+c.loadVocabulary(vocab)
 
-updates = {}
-for param, garam in zip(self.rnn.params, gparams):
-	weights_delta = self.rnn.updates[param]
-	updates[weights_delta] = weights_delta - l_r * gparam
-	updates[param] = param + updates[weights_delta]
+n_hid = 50
+n_steps = 10
+n_seq = 5
+n_classes = 3
+n_out = n_classes
 
-train_model = theano.function(inputs = [index, l_r],
-			outputs = cost,
-			updates = updates,
-			givens = {self.x: train_set_x[index],
-				self.y: train_set_y[index]})
+fs = open(filepath, 'r')
+tokens = None
 
-epoch = 0
+softmax_time = 0
 
-while (epoch < self.max_epochs):
-	for i in xrange(n_train):
-		cost = train_model(i, self.learning_rate)
-	epoch += 1
+#Retrives the inputs and targets
+seq, targets, tokens = c.encode(n_seq, n_steps, tokens, fs)
+_, __, n_in = seq.shape
 
+t0 = time.time()
+
+#Creates the model to run the RNN.
+params = {
+		'n_in': n_in,
+		'n_hid': n_hid,
+		'n_out': n_out,
+		'n_epochs': 250
+	}
+
+model = Model(logger, params)
+
+#Trains the RNN and runs the softmax signal.
+while seq is not None and targets is not None:
+	model.fit(seq, targets, validation_freq=1000)
+
+	seqs = xrange(n_seq)
+	for seq_num in seqs:
+		tsm = time.time()
+		guess = model.predict_probability(seq[seq_num])
+
+		tsm = time.time() - tsm
+		softmax_time += tsm
+		logger.info("Softmax elapsed time: %f" % (tsm))
+
+	seq, targets, tokens = c.encode(n_seq, n_steps, tokens, fs)
+
+logger.info("Total elapsed time: {} and softmax time: {} ".format(time.time() - t0, softmax_time))
