@@ -17,25 +17,42 @@ class Model(object):
 		'''
 			Sets up the model.
 		'''
+		#Creates the shapes of the inputs, target, and other variables.
 		self.x = t.matrix()
 		self.y = t.vector(name = 'y', dtype = 'int32')
 		self.h0 = t.vector()
 		self.lr = t.scalar()
 
+		#The params to be used (input nodes, output nodes, etc...) are retrieved
+		#from the params dictionary.  When the values are not found, the default
+		#values are used.
 		params = self.defaultparams(params)
 		self.setparams(params)
 
+		#The actual RNN.
 		self.rnn = RNN(input = self.x, n_in = self.n_in, n_hid = self.n_hid,
 						n_out = self.n_out, activation = self.activation)
 
+		#Computes the probabilities of the next token and the next token.
 		self.predict_probability = theano.function(inputs = [self.x,],
 												outputs = self.rnn.probability_y)
 		self.predict = theano.function(inputs = [self.x,],
 										outputs = self.rnn.y_out)
 
-	def fit(self, x_train, y_train, x_test = None, y_test = None, validation_freq = 100):
+	def fit(self, x_train, y_train, x_test = None, y_test = None, validation_freq = 200):
 		'''
-			Creates and trains the model.
+			Used to train the RNN.
+
+			x_train - the inputs used for training the RNN.
+			y_train - the targets used for training the RNN.
+
+			x_test - the inputs used for testing how well the training is going.  Requires
+					 that y_test also be provided, otherwise it is ignored.
+			y_test - the targets used for testing how well the training is going.  Requires
+					 that x_test also be provided, otherwise it is ignored.
+
+			validation_freq - how often the training should be interrupted and tested for
+							  accuracy.
 		'''
 		if x_test is not None and y_test is not None:
 			self.runtests = True

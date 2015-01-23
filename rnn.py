@@ -8,6 +8,15 @@ from collections import defaultdict
 class RNN(object):
 	def __init__(self, input, n_in, n_hid, n_out, activation = t.nnet.sigmoid,
 				dtype = theano.config.floatX):
+		'''
+			input - the shape of the input to be provided.
+			n_in - the number of input nodes.
+			n_hid - the number of nodes in the hidden layer.
+			n_out - the number of nodes in the output layer.
+			activation - the activation function to be used by the hidden layer.
+						 The default is the sigmoid function.
+			dtype - the type to be used for the weights and biases.
+		'''
 		self.x = input
 		self.n_in = n_in
 		self.n_hid = n_hid
@@ -18,11 +27,14 @@ class RNN(object):
 		self.ready()
 
 	def ready(self, weights = None):
+		'''
+			Prepares the RNN for use.
+		'''
 		# Set the values of the weights
 		weights = self.defaultweights(weights)
 		self.setweights(weights)
 
-		# Needed for updating 
+		# Needed for updating.  This defines how the weights are to be updated.
 		self.updates = {}
 
 		for param in self.params:
@@ -53,12 +65,17 @@ class RNN(object):
 			self.L2_sqr += (self.W_ih ** 2).sum()
 			self.L2_sqr += (self.W_ho ** 2).sum()
 
+		# The softmax signal.
 		self.probability_y = t.nnet.softmax(self.y_pred)
+
+		# Calculates the argmax.
 		self.y_out = t.argmax(self.probability_y, axis = -1)
 
 	def setweights(self, weights = None):
 		'''
-			Sets the weights for the RNN based on what is provided.
+			Sets the weights for the RNN based on what is provided.  The weights
+			are taken from the weights dictionary that is passed in.  If no
+			weights are passed in, then the default values are used.
 		'''
 		try:
 			self.W.set_value(weights.get('W'))
@@ -110,6 +127,9 @@ class RNN(object):
 		return h_t, y_t
 
 	def loss(self, y):
+		'''
+			Used to compute the errors between the outputs and the target.
+		'''
 		return -t.mean(t.log(self.probability_y)[t.arange(y.shape[0]), y])
 
 	def defaultweights(self, weights = None):

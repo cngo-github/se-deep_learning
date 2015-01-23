@@ -1,3 +1,0 @@
-package com . tulusha . timetracker ;
-import android . app . Activity ;
-import android . app . AlertDialog ;

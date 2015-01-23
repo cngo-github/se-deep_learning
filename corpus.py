@@ -28,6 +28,11 @@ class Corpus:
 		self.logger.info("Vocabulary created.")
 
 	def writeVocabulary(self, infile, outfile):
+		'''
+			Processes the infile, building a vocabulary and writing it to the outfile.
+			This should be used for source corpora that are too large to maintain the
+			entire vocabulary of the corpora in memory.
+		'''
 		self.logger.info("Reading from {} and writing to {}.".format(infile, outfile))
 		fs = open(infile, 'r')
 		os = open(outfile, 'w')
@@ -125,6 +130,10 @@ class Corpus:
 		return (inputs, targets, tokens)
 
 	def encodetoken(self, token):
+		'''
+			One-hot encodes the passed in token.  The length of the encoding
+			is equal to the size of the vocabulary.
+		'''
 		m = np.zeros(len(self.vocabulary))
 		i, = (self.vocabulary == token).nonzero()
 

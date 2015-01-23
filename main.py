@@ -11,9 +11,7 @@ from model import Model
 logfile = 'log_' + str(time.time())
 
 logging.basicConfig(filename = logfile, level = logging.INFO)
-logging.basicConfig(level = logging.INFO)
 logger = logging.getLogger('test')
-#logger.setLevel(logging.INFO)
 
 filepath = 'train1K'
 vocab = 'vocab_train1K'
@@ -32,11 +30,13 @@ tokens = None
 
 softmax_time = 0
 
+#Retrives the inputs and targets
 seq, targets, tokens = c.encode(n_seq, n_steps, tokens, fs)
-a, b, n_in = seq.shape
+_, __, n_in = seq.shape
 
 t0 = time.time()
 
+#Creates the model to run the RNN.
 params = {
 		'n_in': n_in,
 		'n_hid': n_hid,
@@ -46,6 +46,7 @@ params = {
 
 model = Model(logger, params)
 
+#Trains the RNN and runs the softmax signal.
 while seq is not None and targets is not None:
 	model.fit(seq, targets, validation_freq=1000)
 
